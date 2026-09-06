@@ -1,0 +1,30 @@
+{
+  "name": "oma-harness",
+  "version": "0.1.0",
+  "description": "Open Multi Agent - a harness for running tasks across multiple LLM subscriptions",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "oma": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "gui": "node dist/cli.js gui",
+    "web": "node dist/cli.js web",
+    "test": "node --test dist/**/*.test.js",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["llm", "multi-agent", "automation", "ai", "harness"],
+  "author": "shuba",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsx": "^4.10.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
