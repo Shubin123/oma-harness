@@ -3,6 +3,8 @@
 import pytest
 from oma.core.loop import CoreLoop, LoopConfig, TaskState, Status
 
+pytestmark = pytest.mark.unit
+
 
 class TestTaskState:
     def test_snapshot_is_dict(self):

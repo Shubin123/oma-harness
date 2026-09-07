@@ -164,7 +164,10 @@ export class PersistentMemory {
 
   constructor(baseDir = '.oma_memory') {
     this.base = baseDir;
-    fs.mkdirSync(this.base, { recursive: true });
+    fs.mkdirSync(this.base, { recursive: true, mode: 0o700 });
+    try {
+      fs.chmodSync(this.base, 0o700);
+    } catch { /* ignore */ }
   }
 
   private _path(taskId: string): string {
@@ -183,10 +186,15 @@ export class PersistentMemory {
 
   save(taskId: string, data: Record<string, unknown>): void {
     data.updated_at = Date.now() / 1000;
+    const p = this._path(taskId);
     fs.writeFileSync(
-      this._path(taskId),
+      p,
       JSON.stringify(data, null, 2),
+      { mode: 0o600 },
     );
+    try {
+      fs.chmodSync(p, 0o600);
+    } catch { /* ignore */ }
   }
 
   appendHandoff(taskId: string, handoffSummary: string, workerId = ''): void {
@@ -207,6 +215,37 @@ export class PersistentMemory {
     Object.assign(entries, working.toDict());
     data.entries = entries;
     this.save(taskId, data);
+  }
+
+  flush(taskId?: string): number {
+    if (taskId) {
+      const p = this._path(taskId);
+      if (fs.existsSync(p)) {
+        fs.unlinkSync(p);
+        return 1;
+      }
+      return 0;
+    }
+
+    let count = 0;
+    if (fs.existsSync(this.base)) {
+      for (const file of fs.readdirSync(this.base)) {
+        if (file.endsWith('.json')) {
+          try {
+            fs.unlinkSync(path.join(this.base, file));
+            count++;
+          } catch { /* ignore */ }
+        }
+      }
+    }
+    return count;
+  }
+
+  listTasks(): string[] {
+    if (!fs.existsSync(this.base)) return [];
+    return fs.readdirSync(this.base)
+      .filter(f => f.endsWith('.json'))
+      .map(f => f.slice(0, -5));
   }
 }
 

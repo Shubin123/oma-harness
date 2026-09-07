@@ -10,6 +10,8 @@ from oma.core.criteria import (
     automation_criteria,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestCriterion:
     def test_boolean_true(self):

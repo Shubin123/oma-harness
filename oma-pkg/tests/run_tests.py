@@ -21,8 +21,10 @@ Design:
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -156,9 +158,55 @@ def show_history(limit: int = 20):
     print()
 
 
+def find_pytest_executable() -> str:
+    """Find a Python executable that has pytest installed."""
+    try:
+        import pytest
+        return sys.executable
+    except ImportError:
+        pass
+    import shutil
+    for c in [
+        "/opt/homebrew/opt/python@3.11/bin/python3.11",
+        "/opt/homebrew/bin/python3.11",
+        "python3.11",
+        "python3",
+    ]:
+        which = shutil.which(c)
+        if which:
+            res = subprocess.run([which, "-m", "pytest", "--version"], capture_output=True)
+            if res.returncode == 0:
+                return which
+    return sys.executable
+
+
+def start_test_dashboard(host="127.0.0.1", port=8384):
+    """Start an ephemeral dashboard server in a background thread if port is free."""
+    import http.server
+    try:
+        from oma.gui.web import DashboardHandler
+        from oma.providers.auth import AuthManager
+        from oma.agent import OMA
+
+        DashboardHandler.auth_manager = AuthManager()
+        try:
+            DashboardHandler.agent = OMA.from_credentials(DashboardHandler.auth_manager)
+        except Exception:
+            DashboardHandler.agent = None
+
+        server = http.server.HTTPServer((host, port), DashboardHandler)
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        time.sleep(0.2)
+        return server
+    except (OSError, ImportError):
+        return None
+
+
 def run_pytest(args: list, env: dict = None) -> subprocess.CompletedProcess:
     """Run pytest with the given arguments."""
-    cmd = [sys.executable, "-m", "pytest"] + args
+    py_exe = find_pytest_executable()
+    cmd = [py_exe, "-m", "pytest"] + args
     full_env = dict(os.environ)
     if env:
         full_env.update(env)
@@ -167,6 +215,11 @@ def run_pytest(args: list, env: dict = None) -> subprocess.CompletedProcess:
 
 def main():
     parser = argparse.ArgumentParser(description="OMA Test Runner")
+    parser.add_argument("--unit", action="store_true", help="Run unit tests only")
+    parser.add_argument("--functional", action="store_true", help="Run functional tests only")
+    parser.add_argument("--smoke", action="store_true", help="Run smoke tests only")
+    parser.add_argument("--e2e", action="store_true", help="Run end-to-end tests only")
+    parser.add_argument("--all", action="store_true", help="Run all tests (unit, functional, smoke, e2e, integration)")
     parser.add_argument("--live", action="store_true",
                        help="Enable live provider smoke tests (creates 1 conversation)")
     parser.add_argument("--coverage", action="store_true",
@@ -192,49 +245,69 @@ def main():
     print("  OMA Test Runner")
     print("=" * 60)
 
-    # 1. Check dashboard
-    if not args.fast:
-        print(f"\nChecking dashboard at {args.url}...")
-        status = check_dashboard(args.url)
+    test_server = None
+    url = args.url
+
+    # Check / start dashboard if running integration/dashboard tests
+    needs_dashboard = not (args.fast or args.unit or args.functional)
+    if needs_dashboard:
+        print(f"\nChecking dashboard at {url}...")
+        status = check_dashboard(url)
+        if not status["reachable"] and ("8384" in url or "127.0.0.1" in url):
+            print("  Dashboard not running -- auto-starting test dashboard...")
+            test_server = start_test_dashboard()
+            if test_server:
+                status = check_dashboard(url)
+
         if status["reachable"]:
-            providers = status["connected_providers"]
+            providers = status.get("connected_providers", [])
             print(f"  Dashboard: UP")
             print(f"  Connected: {', '.join(providers) if providers else 'none'}")
 
-            # 1b. Pre-flight token validation
+            # Pre-flight token validation
             if providers:
                 print(f"\n  Validating tokens...")
-                token_results = validate_tokens(args.url)
+                token_results = validate_tokens(url)
                 for provider, result in token_results.items():
-                    icon = "OK" if result["valid"] else "EXPIRED"
+                    icon = "OK" if result.get("valid") else "EXPIRED"
                     detail = result.get("detail", "")
                     print(f"    {provider}: {icon}" + (f" ({detail})" if detail else ""))
         else:
             print(f"  Dashboard: DOWN ({status.get('error', 'unknown')})")
-            print(f"  Integration tests will be skipped")
+            print(f"  Live dashboard integration tests will be skipped")
 
-    # 2. Build pytest args
+    # Build pytest args
     pytest_args = ["tests/", "-v", "--tb=short"]
+
+    if args.unit:
+        pytest_args.extend(["-m", "unit"])
+    elif args.functional:
+        pytest_args.extend(["-m", "functional"])
+    elif args.smoke:
+        pytest_args.extend(["-m", "smoke"])
+    elif args.e2e:
+        pytest_args.extend(["-m", "e2e"])
+    elif args.fast:
+        pytest_args.extend(["-m", "unit"])
 
     if args.coverage:
         pytest_args.extend(["--cov=oma", "--cov-report=term-missing"])
 
-    if args.fast:
-        pytest_args.extend(["-k", "not TestDashboard and not TestStatus and not TestAuth and not TestRun and not TestProvider and not TestLive and not TestToken and not TestHistory"])
-
-    # 3. Build env
-    env = {"OMA_TEST_URL": args.url}
+    env = {"OMA_TEST_URL": url}
     if args.live:
         env["OMA_TEST_LIVE"] = "1"
-        print(f"\n  LIVE TESTS ENABLED -- will create 1 conversation")
+        print(f"\n  LIVE TESTS ENABLED")
 
-    # 4. Run tests
     print(f"\n{'=' * 60}")
     print(f"  Running tests...")
     print(f"{'=' * 60}\n")
 
     t0 = time.time()
-    result = run_pytest(pytest_args, env=env)
+    try:
+        result = run_pytest(pytest_args, env=env)
+    finally:
+        if test_server:
+            test_server.shutdown()
     elapsed = time.time() - t0
 
     # 5. Post-test cleanup

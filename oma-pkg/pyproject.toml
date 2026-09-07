@@ -74,6 +74,13 @@ exclude = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "unit: Unit tests for individual components (fast, no external dependencies)",
+    "functional: Functional tests for component workflows and feature interactions",
+    "smoke: Smoke tests for quick health and sanity checks",
+    "e2e: End-to-end tests for full pipeline execution",
+    "live: Live tests hitting real provider endpoints",
+]
 
 [tool.ruff]
 target-version = "py310"

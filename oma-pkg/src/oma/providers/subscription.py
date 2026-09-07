@@ -56,7 +56,10 @@ class ClaudeSubscriptionProvider(SubscriptionProvider):
     ORGS_ENDPOINT = "https://claude.ai/api/organizations"
 
     def __init__(self, session_cookie: str, **kwargs):
-        super().__init__(name="claude", credential_value=session_cookie, auth_type="cookie", **kwargs)
+        cookie = session_cookie.strip().strip("'\"")
+        if cookie.startswith("sessionKey="):
+            cookie = cookie.split("=", 1)[1]
+        super().__init__(name="claude", credential_value=cookie, auth_type="cookie", **kwargs)
         self._org_id = None
         self._conv_id = None
 
@@ -209,7 +212,10 @@ class ChatGPTSubscriptionProvider(SubscriptionProvider):
     ENDPOINT = "https://chatgpt.com/backend-api/conversation"
 
     def __init__(self, access_token: str, **kwargs):
-        super().__init__(name="chatgpt", credential_value=access_token, auth_type="token", **kwargs)
+        token = access_token.strip().strip("'\"")
+        if token.lower().startswith("bearer "):
+            token = token[7:].strip()
+        super().__init__(name="chatgpt", credential_value=token, auth_type="token", **kwargs)
 
     def _get_headers(self) -> dict:
         return {
@@ -323,7 +329,13 @@ class GeminiSubscriptionProvider(SubscriptionProvider):
     ENDPOINT = "https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate"
 
     def __init__(self, session_cookie: str, **kwargs):
-        super().__init__(name="gemini", credential_value=session_cookie, auth_type="cookie", **kwargs)
+        cookie = session_cookie.strip().strip("'\"")
+        if "__Secure-1PSID=" in cookie:
+            for part in cookie.split(";"):
+                if part.strip().startswith("__Secure-1PSID="):
+                    cookie = part.strip().split("=", 1)[1]
+                    break
+        super().__init__(name="gemini", credential_value=cookie, auth_type="cookie", **kwargs)
         self._snlm0e = None
 
     def _get_headers(self) -> dict:

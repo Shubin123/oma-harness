@@ -41,7 +41,7 @@ async function cmdRun(args: string[]): Promise<void> {
   }
 
   const { OMA } = await import('./agent.js');
-  const agent = OMA.fromEnv();
+  const agent = OMA.load();
 
   const result = await agent.run({
     objective,
@@ -67,7 +67,7 @@ async function cmdRun(args: string[]): Promise<void> {
 
 async function cmdStatus(): Promise<void> {
   const { OMA } = await import('./agent.js');
-  const agent = OMA.fromEnv();
+  const agent = OMA.load();
   const status = agent.status();
   console.log(JSON.stringify(status, null, 2));
 }
@@ -111,6 +111,132 @@ async function cmdWeb(args: string[]): Promise<void> {
   runWeb(host, port);
 }
 
+async function cmdAuth(args: string[]): Promise<void> {
+  const sub = args[0] ?? 'status';
+  const { AuthManager } = await import('./providers/auth.js');
+  const mgr = new AuthManager();
+
+  if (sub === 'add') {
+    const provider = args[1]?.toLowerCase();
+    const key = args[2];
+    if (!provider || !key) {
+      console.error('Usage: oma auth add <provider> <key_or_token> [--type auto|cookie|token|api_key] [--email email] [--plan plan]');
+      process.exit(1);
+    }
+    let authType = 'auto';
+    let email: string | undefined;
+    let plan: string | undefined;
+    for (let i = 3; i < args.length; i++) {
+      if (args[i] === '--type' && args[i + 1]) { authType = args[i + 1]; i++; }
+      else if (args[i] === '--email' && args[i + 1]) { email = args[i + 1]; i++; }
+      else if (args[i] === '--plan' && args[i + 1]) { plan = args[i + 1]; i++; }
+    }
+    const cred = mgr.storeCredential(provider, key, { authType, email, plan });
+    console.log(`Stored ${provider} credential securely (auth_type: ${cred.auth_type}).`);
+
+  } else if (sub === 'remove') {
+    const provider = args[1]?.toLowerCase();
+    if (!provider) {
+      console.error('Usage: oma auth remove <provider>');
+      process.exit(1);
+    }
+    mgr.logout(provider);
+    console.log(`Removed credential for ${provider}.`);
+
+  } else if (sub === 'flush') {
+    let provider: string | undefined;
+    let includeMemory = false;
+
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === '--provider' && args[i + 1]) { provider = args[i + 1].toLowerCase(); i++; }
+      else if (args[i] === '--include-memory') includeMemory = true;
+    }
+
+    if (provider) {
+      mgr.logout(provider);
+      console.log(`Flushed credential for ${provider}.`);
+    } else {
+      const res = mgr.flush(includeMemory);
+      console.log(`Securely flushed ${res.flushedCredentialsCount} credentials from ${res.credentialsFile}.`);
+      if (res.memoryFilesRemoved > 0) {
+        console.log(`Removed ${res.memoryFilesRemoved} persistent task memory files.`);
+      }
+    }
+
+  } else if (sub === 'info') {
+    const info = mgr.storageInfo() as Record<string, unknown>;
+    console.log('OMA Safe Storage Information:');
+    console.log(`  Credentials File:    ${info.credentials_file}`);
+    console.log(`  Directory:           ${info.credentials_dir}`);
+    console.log(`  File Exists:         ${info.file_exists}`);
+    if (info.file_exists) {
+      console.log(`  File Size:           ${info.size_bytes} bytes`);
+      console.log(`  File Mode:           ${info.file_permissions} (owner-only: rw-------)`);
+      console.log(`  Directory Mode:      ${info.dir_permissions} (owner-only: rwx------)`);
+    }
+    console.log(`  Encryption:          ${info.encryption}`);
+    console.log(`  Stored Providers:    ${info.provider_count}`);
+    const providers = (info.providers ?? {}) as Record<string, Record<string, unknown>>;
+    for (const [p, pinfo] of Object.entries(providers)) {
+      const exp = pinfo.is_expired ? ' (EXPIRED)' : '';
+      const email = pinfo.email ? ` email=${pinfo.email}` : '';
+      const plan = pinfo.plan ? ` plan=${pinfo.plan}` : '';
+      console.log(`    - ${p}: type=${pinfo.auth_type}${email}${plan} [${pinfo.masked_value}]${exp}`);
+    }
+    console.log('\nHow to delete:');
+    console.log('  - Single provider:   oma auth remove <provider>');
+    console.log('  - All credentials:   oma auth flush --all');
+    console.log('  - All + Task memory: oma auth flush --all --include-memory');
+    console.log('  - Manual purge:      rm -f ~/.oma/credentials.json && rm -rf .oma_memory/');
+
+  } else if (sub === 'status' || sub === 'list') {
+    const st = mgr.status();
+    console.log('OMA Stored Credentials:');
+    for (const [name, info] of Object.entries(st)) {
+      const statusText = (info as Record<string, unknown>).status ?? 'unknown';
+      const cred = mgr.getCredential(name);
+      const extra: string[] = [];
+      if ((info as Record<string, unknown>).email) extra.push(`email=${(info as Record<string, unknown>).email}`);
+      if ((info as Record<string, unknown>).plan) extra.push(`plan=${(info as Record<string, unknown>).plan}`);
+      if (cred) extra.push(`type=${cred.auth_type}`);
+      const extraStr = extra.length > 0 ? ` (${extra.join(', ')})` : '';
+      console.log(`  - ${name}: ${statusText}${extraStr}`);
+    }
+  } else {
+    console.error(`Unknown auth command: ${sub}`);
+    process.exit(1);
+  }
+}
+
+async function cmdMemory(args: string[]): Promise<void> {
+  const sub = args[0] ?? 'list';
+  const { PersistentMemory } = await import('./automation/memory.js');
+  const mem = new PersistentMemory('.oma_memory');
+
+  if (sub === 'list') {
+    const tasks = mem.listTasks();
+    if (tasks.length === 0) {
+      console.log('No tasks stored in persistent memory (.oma_memory).');
+    } else {
+      console.log(`Stored tasks in .oma_memory (${tasks.length}):`);
+      for (const t of tasks.sort()) {
+        console.log(`  - ${t}`);
+      }
+    }
+  } else if (sub === 'flush') {
+    let taskId: string | undefined;
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === '--task-id' && args[i + 1]) { taskId = args[i + 1]; i++; }
+    }
+    const count = mem.flush(taskId);
+    if (taskId) {
+      console.log(`Flushed task '${taskId}' from memory.`);
+    } else {
+      console.log(`Flushed ${count} task memory files from .oma_memory.`);
+    }
+  }
+}
+
 // ---- main ----
 
 function printHelp(): void {
@@ -125,6 +251,17 @@ Commands:
 
   status              Show agent status
   providers           List configured providers
+
+  auth <subcommand>   Manage authentication credentials
+    add <p> <key>     Add/update provider credential
+    remove <p>        Remove provider credential
+    flush             Securely wipe stored credentials
+    info              Show storage paths, permissions, and security
+    status            List stored credentials
+
+  memory <subcommand> Manage persistent task memory
+    list              List stored tasks
+    flush             Flush persistent task memory
 
   web                 Launch web dashboard
     --host HOST       Bind address (default: 127.0.0.1)
@@ -148,6 +285,12 @@ async function main(): Promise<void> {
       break;
     case 'providers':
       await cmdProviders();
+      break;
+    case 'auth':
+      await cmdAuth(rest);
+      break;
+    case 'memory':
+      await cmdMemory(rest);
       break;
     case 'web':
       await cmdWeb(rest);

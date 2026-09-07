@@ -11,6 +11,8 @@ from oma.core.sanitize import (
     collapse_whitespace,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestStripAttributions:
     def test_claude_attribution(self):

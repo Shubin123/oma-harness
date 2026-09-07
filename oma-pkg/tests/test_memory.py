@@ -5,6 +5,8 @@ import tempfile
 import os
 from oma.automation.memory import WorkingMemory, PersistentMemory, ContextOptimizer
 
+pytestmark = pytest.mark.unit
+
 
 class TestWorkingMemory:
     def test_put_get(self):

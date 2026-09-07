@@ -18,6 +18,7 @@
  */
 
 import { Provider, type ProviderResponse, type Message, RateLimiter, ErrorClass } from './base.js';
+import { cleanToken } from './auth.js';
 import crypto from 'node:crypto';
 
 class SubscriptionProvider extends Provider {
@@ -59,7 +60,8 @@ export class ClaudeSubscriptionProvider extends SubscriptionProvider {
   private _convObjective: string | null = null;
 
   constructor(sessionCookie: string) {
-    super({ name: 'claude', credential: sessionCookie, authType: 'cookie' });
+    const cleaned = cleanToken('claude', sessionCookie);
+    super({ name: 'claude', credential: cleaned, authType: 'cookie' });
   }
 
   private _getHeaders(): Record<string, string> {
@@ -226,7 +228,8 @@ export class ChatGPTSubscriptionProvider extends SubscriptionProvider {
   static ENDPOINT = 'https://chatgpt.com/backend-api/conversation';
 
   constructor(accessToken: string) {
-    super({ name: 'chatgpt', credential: accessToken, authType: 'token' });
+    const cleaned = cleanToken('chatgpt', accessToken);
+    super({ name: 'chatgpt', credential: cleaned, authType: 'token' });
   }
 
   private _getHeaders(): Record<string, string> {
@@ -324,7 +327,8 @@ export class GeminiSubscriptionProvider extends SubscriptionProvider {
   private _snlm0e: string | null = null;
 
   constructor(sessionCookie: string) {
-    super({ name: 'gemini', credential: sessionCookie, authType: 'cookie' });
+    const cleaned = cleanToken('gemini', sessionCookie);
+    super({ name: 'gemini', credential: cleaned, authType: 'cookie' });
   }
 
   private _getHeaders(): Record<string, string> {

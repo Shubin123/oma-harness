@@ -24,7 +24,7 @@ import { CoreLoop, type LoopConfig, DEFAULT_LOOP_CONFIG, TaskState } from './cor
 import { Sanitizer } from './core/sanitize.js';
 import { ProviderRegistry } from './providers/registry.js';
 import { providerResponseOk, providerResponseTokensTotal } from './providers/base.js';
-import type { AuthManager } from './providers/auth.js';
+import { AuthManager } from './providers/auth.js';
 
 export class OMA {
   registry: ProviderRegistry;
@@ -53,9 +53,22 @@ export class OMA {
   }
 
   /** Create OMA from environment variables. */
-  static fromEnv(opts?: Partial<LoopConfig>): OMA {
-    const registry = ProviderRegistry.fromEnv();
+  static fromEnv(opts?: Partial<LoopConfig>, checkGeneric = false): OMA {
+    const registry = ProviderRegistry.fromEnv(checkGeneric);
     return new OMA({ registry, config: opts });
+  }
+
+  /**
+   * Create OMA by loading securely stored credentials first,
+   * falling back to environment variables.
+   */
+  static load(opts?: { config?: Partial<LoopConfig>; memoryDir?: string }): OMA {
+    const auth = new AuthManager();
+    let registry = ProviderRegistry.fromCredentials(auth);
+    if (registry.available().length === 0) {
+      registry = ProviderRegistry.fromEnv(true);
+    }
+    return new OMA({ registry, config: opts?.config, memoryDir: opts?.memoryDir });
   }
 
   /**
@@ -67,7 +80,7 @@ export class OMA {
     let registry = ProviderRegistry.fromCredentials(authManager);
     if (registry.available().length === 0) {
       // fallback to env vars if no credentials stored
-      registry = ProviderRegistry.fromEnv();
+      registry = ProviderRegistry.fromEnv(true);
     }
     return new OMA({ registry, config: opts });
   }
@@ -182,7 +195,7 @@ export class OMA {
   private _estimateConfidence(output: string, criteria: Record<string, unknown>): number {
     if (!output) return 0;
 
-    let score = 0.3; // baseline for non-empty output
+    let score = 0.35; // baseline for non-empty output
 
     // length heuristic: very short answers are usually incomplete
     if (output.length > 200) score += 0.1;
@@ -193,7 +206,7 @@ export class OMA {
       const outputLower = output.toLowerCase();
       const keys = Object.keys(criteria);
       const matched = keys.filter(key => outputLower.includes(key.toLowerCase())).length;
-      score += 0.3 * (matched / keys.length);
+      score += 0.35 * (matched / keys.length);
     }
 
     // cap at 0.95 (never auto-confirm at 1.0 without eval)

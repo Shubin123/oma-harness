@@ -152,14 +152,16 @@ class ProviderRegistry:
         }
 
     @staticmethod
-    def from_env() -> "ProviderRegistry":
+    def from_env(include_standard_env: bool = False) -> "ProviderRegistry":
         """
         Auto-discover providers from environment variables.
-        Expects: OMA_CLAUDE_KEY, OMA_GEMINI_KEY, OMA_OPENAI_KEY,
-                 OMA_DEEPSEEK_KEY, OMA_GLM_KEY, OMA_KIMI_KEY
+        Supports both API keys and sessional keys (cookies/tokens).
+        Expects OMA_*_KEY variables, and optionally checks standard env vars.
         """
+        from .auth import clean_token, detect_auth_type
+
         reg = ProviderRegistry()
-        env_map = {
+        oma_map = {
             "claude":   "OMA_CLAUDE_KEY",
             "gemini":   "OMA_GEMINI_KEY",
             "chatgpt":  "OMA_OPENAI_KEY",
@@ -167,40 +169,60 @@ class ProviderRegistry:
             "glm":      "OMA_GLM_KEY",
             "kimi":     "OMA_KIMI_KEY",
         }
+        std_map = {
+            "claude":   ["ANTHROPIC_API_KEY", "CLAUDE_API_KEY"],
+            "gemini":   ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+            "chatgpt":  ["OPENAI_API_KEY"],
+            "deepseek": ["DEEPSEEK_API_KEY"],
+            "glm":      ["GLM_API_KEY", "ZHIPU_API_KEY"],
+            "kimi":     ["KIMI_API_KEY", "MOONSHOT_API_KEY"],
+        }
 
-        for name, env_var in env_map.items():
+        for name, env_var in oma_map.items():
             key = os.environ.get(env_var)
+            if not key and include_standard_env:
+                for alt in std_map.get(name, []):
+                    val = os.environ.get(alt)
+                    if val:
+                        key = val
+                        break
+
             if key:
-                # lazy import -- no hard dependency on any SDK
-                provider = _make_http_provider(name, key)
+                auth_type = detect_auth_type(name, key)
+                cleaned = clean_token(name, key)
+                if auth_type in ("cookie", "token"):
+                    provider = _make_subscription_provider(name, cleaned, auth_type)
+                else:
+                    provider = _make_http_provider(name, cleaned)
+
                 if provider:
                     reg.register(name, provider)
 
         return reg
 
-
     @staticmethod
-    def from_credentials(auth_manager) -> "ProviderRegistry":
+    def from_credentials(auth_manager, include_env: bool = True) -> "ProviderRegistry":
         """
         Build registry from stored credentials (subscription login or API key).
-
-        Used by the graphical UI. Checks the AuthManager's credential store
-        and creates providers accordingly -- subscription-based for browser
-        logins, HTTP-based for API keys.
+        Optionally merges with environment variables for any missing providers.
         """
         reg = ProviderRegistry()
         creds = auth_manager.store.all_providers()
 
         for name, cred in creds.items():
             if cred.auth_type == "api_key":
-                # use the standard HTTP provider
                 provider = _make_http_provider(name, cred.value)
             else:
-                # use subscription-based provider
                 provider = _make_subscription_provider(name, cred.value, cred.auth_type)
 
             if provider:
                 reg.register(name, provider)
+
+        if include_env:
+            env_reg = ProviderRegistry.from_env()
+            for name, provider in env_reg._providers.items():
+                if name not in reg._providers:
+                    reg.register(name, provider)
 
         return reg
 

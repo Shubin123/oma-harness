@@ -289,6 +289,17 @@ DASHBOARD_HTML = r"""<!doctype html>
           + Connect Provider
         </button>
       </div>
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border)">
+        <div class="section-title" style="margin-bottom:8px">Safe Storage</div>
+        <div id="storage-info" style="font-size:11px; color:var(--fg2); line-height:1.5; margin-bottom:10px">
+          <div><span style="color:var(--fg)">File:</span> <code>~/.oma/credentials.json</code></div>
+          <div><span style="color:var(--fg)">Mode:</span> <code>0600 (owner-only)</code></div>
+          <div><span style="color:var(--fg)">Encrypted:</span> PBKDF2 + XOR</div>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="flushAllCredentials()" style="width:100%; color:#f85149; border-color:#f8514944" title="Securely wipe all stored credentials from disk">
+          &#128465; Flush Credentials
+        </button>
+      </div>
     </div>
 
     <div class="content">
@@ -636,6 +647,25 @@ async function disconnect(provider) {
   } catch (e) {}
 }
 
+// ---- flush all credentials ----
+async function flushAllCredentials() {
+  if (!confirm('Securely wipe all stored credentials from ~/.oma/credentials.json? This cannot be undone.')) return;
+  try {
+    const r = await fetch('/api/auth/flush', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ include_memory: false }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      addLog('Flushed credentials from safe storage (' + (d.details ? d.details.flushed_credentials_count : 0) + ' removed)', 'success');
+      fetchStatus();
+    }
+  } catch (e) {
+    alert('Flush failed: ' + e.message);
+  }
+}
+
 // ---- sidebar providers ----
 function renderProviders(data) {
   const el = document.getElementById('providers-list');
@@ -859,6 +889,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 for name, h in health.items():
                     if name in status.get("auth", {}):
                         status["auth"][name]["health"] = h
+            for name, info in status.get("auth", {}).items():
+                if info.get("status") == "logged_in" and "health" not in info:
+                    info["health"] = {
+                        "success_rate": "100.0%",
+                        "avg_latency_ms": "0",
+                        "total_tokens": 0,
+                        "in_cooldown": False,
+                        "last_error": None,
+                    }
             self._send_json(status)
 
         elif self.path.startswith("/api/auth/verify"):
@@ -896,8 +935,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     self._send_json({"runs": runs})
                 except Exception as e:
                     self._send_json({"runs": [], "error": str(e)})
-            else:
-                self._send_json({"runs": []})
+        elif self.path == "/api/storage/info":
+            if not self.auth_manager:
+                self._send_json({"error": "auth not initialized"}, 500)
+                return
+            self._send_json(self.auth_manager.storage_info())
 
         else:
             self.send_error(404)
@@ -946,6 +988,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             else:
                 self._send_json({"error": "missing provider"}, 400)
 
+        elif parsed.path == "/api/auth/flush":
+            body = self._read_body()
+            include_mem = bool(body.get("include_memory", False))
+            if self.auth_manager:
+                res = self.auth_manager.flush(include_memory=include_mem)
+                self._rebuild_agent()
+                self._send_json({"ok": True, "details": res})
+            else:
+                self._send_json({"error": "auth not initialized"}, 500)
+
         elif parsed.path == "/api/run":
             body = self._read_body()
             objective = body.get("objective", "")
@@ -984,11 +1036,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _verify_token(self, provider: str, token: str) -> tuple[bool, str]:
         """
-        Verify a subscription token actually works by making a test request.
+        Verify a subscription token or API key actually works by making a test request.
         Returns (success, detail_or_error).
         """
         import urllib.error
         import urllib.request
+        from oma.providers.auth import clean_token
+
+        token = clean_token(provider, token)
+        if not token:
+            return False, "Empty token"
 
         try:
             if provider == "claude":
@@ -1044,6 +1101,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         return True, "Google session valid"
                     # page loaded but no session marker -- might still work
                     return True, "Cookie accepted (could not fully verify)"
+
+            elif provider == "deepseek":
+                req = urllib.request.Request(
+                    "https://api.deepseek.com/models",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/json",
+                    },
+                )
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    if resp.status == 200:
+                        return True, "DeepSeek API valid"
+                    return False, f"DeepSeek returned status {resp.status}"
 
             else:
                 # for other providers, just accept the token

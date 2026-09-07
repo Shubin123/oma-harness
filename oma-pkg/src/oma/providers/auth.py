@@ -98,6 +98,96 @@ PROVIDER_AUTH = {
 }
 
 
+def clean_token(provider: str, raw: str) -> str:
+    """
+    Sanitize and clean a token or cookie string.
+    Removes quotes, whitespace, and cookie name prefixes like 'sessionKey='.
+    """
+    if not raw:
+        return ""
+    token = raw.strip().strip("'\"")
+
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+
+    if "sessionKey=" in token:
+        for part in token.split(";"):
+            part = part.strip()
+            if part.startswith("sessionKey="):
+                token = part.split("=", 1)[1].strip()
+                break
+    elif token.startswith("sessionKey:"):
+        token = token.split(":", 1)[1].strip()
+
+    cookie_name_gpt = "__Secure-next-auth.session-token"
+    if f"{cookie_name_gpt}=" in token:
+        for part in token.split(";"):
+            part = part.strip()
+            if part.startswith(f"{cookie_name_gpt}="):
+                token = part.split("=", 1)[1].strip()
+                break
+
+    cookie_name_gem = "__Secure-1PSID"
+    if f"{cookie_name_gem}=" in token:
+        for part in token.split(";"):
+            part = part.strip()
+            if part.startswith(f"{cookie_name_gem}="):
+                token = part.split("=", 1)[1].strip()
+                break
+
+    if ";" in token:
+        token = token.split(";", 1)[0].strip()
+
+    return token.strip()
+
+
+def detect_auth_type(provider: str, key_or_token: str) -> str:
+    """
+    Automatically detect whether a supplied key is a sessional key or an API key.
+
+    Returns:
+        'cookie', 'token', or 'api_key'
+    """
+    if not key_or_token:
+        return "api_key"
+
+    raw = key_or_token.strip().strip("'\"")
+
+    # Universal session signatures across any provider
+    if raw.startswith("sessionKey=") or "sessionKey=" in raw:
+        return "cookie"
+    if raw.startswith("sk-ant-sid"):
+        return "cookie"
+    if raw.startswith("sk-ant-oat"):
+        return "token"
+    if raw.startswith("eyJ"):
+        return "token"
+    if "__Secure-" in raw:
+        return "token" if "token" in raw.lower() else "cookie"
+
+    p = provider.lower()
+    if p == "claude":
+        if raw.startswith("sk-ant-api"):
+            return "api_key"
+        if len(raw) > 80 and not raw.startswith("sk-"):
+            return "cookie"
+        return "api_key"
+
+    elif p == "chatgpt":
+        if raw.startswith("sk-proj-") or raw.startswith("sk-"):
+            return "api_key"
+        return "token" if len(raw) > 100 else "api_key"
+
+    elif p == "gemini":
+        if raw.startswith("AIzaSy"):
+            return "api_key"
+        if len(raw) > 50:
+            return "cookie"
+        return "cookie"
+
+    return "api_key"
+
+
 class CredentialStore:
     """
     Encrypted on-disk credential storage.
@@ -220,14 +310,87 @@ class CredentialStore:
             return None
         return cred
 
+    @property
+    def path(self) -> Path:
+        return self._path
+
     def remove(self, provider: str):
         self._creds.pop(provider, None)
         self._save()
 
+    def flush(self, secure_wipe: bool = True) -> int:
+        """
+        Securely wipe and flush all stored credentials from disk.
+        If secure_wipe is True, overwrites file data before unlinking.
+        Returns the number of credentials cleared.
+        """
+        count = len(self._creds)
+        self._creds.clear()
+
+        if self._path.exists():
+            try:
+                if secure_wipe:
+                    size = self._path.stat().st_size
+                    with open(self._path, "wb") as f:
+                        f.write(os.urandom(size or 128))
+                        f.flush()
+                        os.fsync(f.fileno())
+                self._path.unlink()
+            except OSError:
+                pass
+
+        # Also clean up any lingering temporary files
+        try:
+            for tmp in self._path.parent.glob(".credentials-*.tmp"):
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
+        except OSError:
+            pass
+
+        return count
+
+    def storage_info(self) -> dict:
+        """
+        Return transparency details on what is stored and where.
+        Masks token values for security.
+        """
+        exists = self._path.exists()
+        size_bytes = self._path.stat().st_size if exists else 0
+        file_mode = oct(self._path.stat().st_mode & 0o777) if exists else None
+        dir_mode = oct(self._path.parent.stat().st_mode & 0o777) if self._path.parent.exists() else None
+
+        stored = {}
+        for name, cred in self._creds.items():
+            val = cred.value or ""
+            masked = f"{val[:4]}...{val[-4:]}" if len(val) > 8 else "***"
+            stored[name] = {
+                "auth_type": cred.auth_type,
+                "email": cred.email,
+                "plan": cred.plan,
+                "is_expired": cred.is_expired,
+                "created_at": cred.created_at,
+                "expires_at": cred.expires_at,
+                "masked_value": masked,
+            }
+
+        return {
+            "credentials_file": str(self._path),
+            "credentials_dir": str(self._path.parent),
+            "file_exists": exists,
+            "size_bytes": size_bytes,
+            "file_permissions": file_mode,
+            "dir_permissions": dir_mode,
+            "encryption": "PBKDF2-HMAC-SHA256 (100k rounds) + Hardware UUID key + XOR stream",
+            "provider_count": len(self._creds),
+            "providers": stored,
+        }
+
     def all_providers(self) -> dict[str, Credential]:
         return {k: v for k, v in self._creds.items() if not v.is_expired}
 
-    def status(self) -> dict[str, dict]:
+    def status(self) -> dict:
         result = {}
         for name in PROVIDER_AUTH:
             cred = self._creds.get(name)
@@ -238,8 +401,22 @@ class CredentialStore:
                     "plan": cred.plan,
                     "display_name": cred.display_name,
                 }
+            elif cred and cred.is_expired:
+                result[name] = {"status": "expired"}
             else:
                 result[name] = {"status": "logged_out"}
+
+        for name, cred in self._creds.items():
+            if name not in result:
+                if not cred.is_expired:
+                    result[name] = {
+                        "status": "logged_in",
+                        "email": cred.email,
+                        "plan": cred.plan,
+                        "display_name": cred.display_name,
+                    }
+                else:
+                    result[name] = {"status": "expired"}
         return result
 
 
@@ -341,6 +518,40 @@ class AuthManager:
     def status(self) -> dict:
         return self.store.status()
 
+    def store_credential(
+        self,
+        provider: str,
+        value: str,
+        auth_type: str = "auto",
+        email: str | None = None,
+        plan: str | None = None,
+    ) -> Credential:
+        """
+        Store a credential, securely handling either a sessional key or an API key.
+        Automatically cleans/sanitizes the key and detects its type if requested.
+        """
+        cleaned = clean_token(provider, value)
+        if not cleaned:
+            raise ValueError("Credential value cannot be empty")
+
+        if auth_type == "auto" or not auth_type:
+            resolved_type = detect_auth_type(provider, value)
+        else:
+            resolved_type = auth_type
+
+        if resolved_type in ("cookie", "token"):
+            self.store_session_token(
+                provider=provider,
+                token=cleaned,
+                email=email,
+                plan=plan,
+                auth_type=resolved_type,
+            )
+        else:
+            self.store_api_key(provider=provider, api_key=cleaned)
+
+        return self.store.get(provider)
+
     def store_api_key(self, provider: str, api_key: str):
         """Store an API key directly (fallback for users who prefer API keys)."""
         cred = Credential(
@@ -440,6 +651,40 @@ class AuthManager:
         self._notify(provider, "logged_out")
 
     def logout_all(self):
-        for provider in list(PROVIDER_AUTH.keys()):
+        providers = set(PROVIDER_AUTH.keys()) | set(self.store.all_providers().keys())
+        for provider in providers:
             self.store.remove(provider)
             self._notify(provider, "logged_out")
+
+    def flush(self, include_memory: bool = False, memory_dir: str | Path | None = None) -> dict:
+        """
+        Securely wipe and flush all credentials from disk.
+        Optionally wipes task persistent memory (.oma_memory).
+        """
+        providers = set(PROVIDER_AUTH.keys()) | set(self.store.all_providers().keys())
+        for p in providers:
+            self._notify(p, "logged_out")
+
+        count = self.store.flush(secure_wipe=True)
+
+        memory_flushed = 0
+        if include_memory:
+            mem_path = Path(memory_dir or ".oma_memory")
+            if mem_path.exists():
+                for f in mem_path.glob("*.json"):
+                    try:
+                        f.unlink()
+                        memory_flushed += 1
+                    except OSError:
+                        pass
+
+        return {
+            "flushed_credentials_count": count,
+            "memory_files_removed": memory_flushed,
+            "credentials_file": str(self.store.path),
+            "status": "flushed",
+        }
+
+    def storage_info(self) -> dict:
+        """Return transparency details on safe credential storage."""
+        return self.store.storage_info()

@@ -11,6 +11,7 @@
 
 import { Provider, ErrorClass } from './base.js';
 import { PROVIDER_CONFIGS, HTTPProvider } from './http-providers.js';
+import { detectAuthType, cleanToken } from './auth.js';
 
 export class ProviderHealth {
   name: string;
@@ -146,22 +147,41 @@ export class ProviderRegistry {
   }
 
   /** Auto-discover providers from environment variables. */
-  static fromEnv(): ProviderRegistry {
+  static fromEnv(checkGeneric = false): ProviderRegistry {
     const reg = new ProviderRegistry();
-    const envMap: Record<string, string> = {
-      claude: 'OMA_CLAUDE_KEY',
-      gemini: 'OMA_GEMINI_KEY',
-      chatgpt: 'OMA_OPENAI_KEY',
-      deepseek: 'OMA_DEEPSEEK_KEY',
-      glm: 'OMA_GLM_KEY',
-      kimi: 'OMA_KIMI_KEY',
+    const envMap: Record<string, string[]> = {
+      claude: ['OMA_CLAUDE_KEY'],
+      gemini: ['OMA_GEMINI_KEY'],
+      chatgpt: ['OMA_OPENAI_KEY'],
+      deepseek: ['OMA_DEEPSEEK_KEY'],
+      glm: ['OMA_GLM_KEY'],
+      kimi: ['OMA_KIMI_KEY'],
     };
 
-    for (const [name, envVar] of Object.entries(envMap)) {
-      const key = process.env[envVar];
-      if (key) {
-        const provider = makeHTTPProvider(name, key);
-        if (provider) reg.register(name, provider);
+    if (checkGeneric) {
+      envMap.claude.push('ANTHROPIC_API_KEY', 'CLAUDE_SESSION_KEY', 'CLAUDE_COOKIE');
+      envMap.chatgpt.push('OPENAI_API_KEY', 'CHATGPT_ACCESS_TOKEN');
+      envMap.gemini.push('GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GEMINI_COOKIE');
+      envMap.deepseek.push('DEEPSEEK_API_KEY');
+    }
+
+    for (const [name, envVars] of Object.entries(envMap)) {
+      for (const ev of envVars) {
+        const rawKey = process.env[ev];
+        if (rawKey) {
+          const authType = detectAuthType(name, rawKey);
+          const cleaned = cleanToken(name, rawKey);
+          let provider: Provider | null = null;
+          if (authType === 'cookie' || authType === 'token') {
+            provider = makeSubscriptionProvider(name, cleaned, authType);
+          } else {
+            provider = makeHTTPProvider(name, cleaned);
+          }
+          if (provider) {
+            reg.register(name, provider);
+          }
+          break;
+        }
       }
     }
 

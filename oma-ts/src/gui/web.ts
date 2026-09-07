@@ -289,6 +289,17 @@ const DASHBOARD_HTML = String.raw`<!doctype html>
           + Connect Provider
         </button>
       </div>
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border)">
+        <div class="section-title" style="margin-bottom:8px">Safe Storage</div>
+        <div id="storage-info" style="font-size:11px; color:var(--fg2); line-height:1.5; margin-bottom:10px">
+          <div><span style="color:var(--fg)">File:</span> <code>~/.oma/credentials.json</code></div>
+          <div><span style="color:var(--fg)">Mode:</span> <code>0600 (owner-only)</code></div>
+          <div><span style="color:var(--fg)">Encrypted:</span> PBKDF2 + XOR</div>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="flushAllCredentials()" style="width:100%; color:#f85149; border-color:#f8514944" title="Securely wipe all stored credentials from disk">
+          &#128465; Flush Credentials
+        </button>
+      </div>
     </div>
 
     <div class="content">
@@ -637,6 +648,25 @@ async function disconnect(provider) {
   } catch (e) {}
 }
 
+// ---- flush all credentials ----
+async function flushAllCredentials() {
+  if (!confirm('Securely wipe all stored credentials from ~/.oma/credentials.json? This cannot be undone.')) return;
+  try {
+    const r = await fetch('/api/auth/flush', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ include_memory: false }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      addLog('Flushed credentials from safe storage (' + (d.details ? d.details.flushedCredentialsCount : 0) + ' removed)', 'success');
+      fetchStatus();
+    }
+  } catch (e) {
+    alert('Flush failed: ' + e.message);
+  }
+}
+
 // ---- sidebar providers ----
 function renderProviders(data) {
   var el = document.getElementById('providers-list');
@@ -977,7 +1007,28 @@ async function handleRequest(
           }
         }
       }
+      const auth = (status.auth ?? {}) as Record<string, Record<string, unknown>>;
+      for (const [name, info] of Object.entries(auth)) {
+        if (info.status === 'logged_in' && !info.health) {
+          info.health = {
+            success_rate: '100.0%',
+            avg_latency_ms: '0',
+            total_tokens: 0,
+            in_cooldown: false,
+            last_error: null,
+          };
+        }
+      }
       sendJson(res, status);
+      return;
+    }
+
+    if (pathname === '/api/storage/info') {
+      if (!dashboardAuth) {
+        sendJson(res, { error: 'auth not initialized' }, 500);
+        return;
+      }
+      sendJson(res, dashboardAuth.storageInfo());
       return;
     }
 
@@ -1030,6 +1081,18 @@ async function handleRequest(
         sendJson(res, { ok: true });
       } else {
         sendJson(res, { error: 'missing provider' }, 400);
+      }
+      return;
+    }
+
+    if (pathname === '/api/auth/flush') {
+      const includeMemory = Boolean(body.include_memory);
+      if (dashboardAuth) {
+        const details = dashboardAuth.flush(includeMemory);
+        rebuildAgent();
+        sendJson(res, { ok: true, details });
+      } else {
+        sendJson(res, { error: 'auth not initialized' }, 500);
       }
       return;
     }

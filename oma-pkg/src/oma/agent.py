@@ -53,6 +53,21 @@ class OMA:
         return cls(registry=registry, **kwargs)
 
     @classmethod
+    def load(cls, **kwargs) -> "OMA":
+        """
+        Create OMA using all available configuration sources:
+        1. Stored encrypted credentials (~/.oma/credentials.json)
+        2. Environment variables (OMA_*_KEY and standard provider keys)
+        """
+        from oma.providers.auth import AuthManager
+
+        auth = AuthManager()
+        registry = ProviderRegistry.from_credentials(auth, include_env=True)
+        if not registry._providers:
+            registry = ProviderRegistry.from_env(include_standard_env=True)
+        return cls(registry=registry, **kwargs)
+
+    @classmethod
     def from_credentials(cls, auth_manager, **kwargs) -> "OMA":
         """
         Create OMA from stored credentials (subscription or API key).
@@ -178,12 +193,14 @@ class OMA:
         if not output:
             return 0.0
 
-        score = 0.3  # baseline for non-empty output
+        score = 0.2  # baseline for non-empty output
 
         # length heuristic: very short answers are usually incomplete
+        if len(output) > 50:
+            score += 0.1
         if len(output) > 200:
             score += 0.1
-        if len(output) > 1000:
+        if len(output) > 500:
             score += 0.1
 
         # check if output addresses criteria keywords
@@ -193,8 +210,7 @@ class OMA:
                 1 for key in criteria
                 if key.lower() in output_lower
             )
-            if criteria:
-                score += 0.3 * (matched / len(criteria))
+            score += 0.45 * (matched / len(criteria))
 
         # cap at 0.95 (never auto-confirm at 1.0 without eval)
         return min(score, 0.95)

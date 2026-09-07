@@ -5,6 +5,8 @@ from oma.core.edge import HandoffNote, near_outage_handler, outage_recovery_prom
 from oma.core.loop import TaskState, Status
 from oma.automation.memory import WorkingMemory
 
+pytestmark = pytest.mark.unit
+
 
 class TestHandoffNote:
     def test_to_prompt_format(self):

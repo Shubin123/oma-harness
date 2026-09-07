@@ -80,6 +80,103 @@ export const PROVIDER_AUTH: Record<string, Record<string, string | null>> = {
   },
 };
 
+export function cleanToken(provider: string, raw: string): string {
+  if (!raw) return '';
+  let token = raw.trim().replace(/^['"]|['"]$/g, '');
+
+  if (token.toLowerCase().startsWith('bearer ')) {
+    token = token.slice(7).trim();
+  }
+
+  if (token.includes('sessionKey=')) {
+    for (const part of token.split(';')) {
+      const trimmed = part.trim();
+      if (trimmed.startsWith('sessionKey=')) {
+        token = trimmed.split('=', 2)[1]?.trim() ?? '';
+        break;
+      }
+    }
+  } else if (token.startsWith('sessionKey:')) {
+    token = token.split(':', 2)[1]?.trim() ?? '';
+  }
+
+  const cookieNameGpt = '__Secure-next-auth.session-token';
+  if (token.includes(`${cookieNameGpt}=`)) {
+    for (const part of token.split(';')) {
+      const trimmed = part.trim();
+      if (trimmed.startsWith(`${cookieNameGpt}=`)) {
+        token = trimmed.split('=', 2)[1]?.trim() ?? '';
+        break;
+      }
+    }
+  }
+
+  const cookieNameGem = '__Secure-1PSID';
+  if (token.includes(`${cookieNameGem}=`)) {
+    for (const part of token.split(';')) {
+      const trimmed = part.trim();
+      if (trimmed.startsWith(`${cookieNameGem}=`)) {
+        token = trimmed.split('=', 2)[1]?.trim() ?? '';
+        break;
+      }
+    }
+  }
+
+  if (token.includes(';')) {
+    token = token.split(';', 2)[0]?.trim() ?? '';
+  }
+
+  return token.trim();
+}
+
+export function detectAuthType(provider: string, keyOrToken: string): 'cookie' | 'token' | 'api_key' {
+  if (!keyOrToken) return 'api_key';
+
+  const raw = keyOrToken.trim().replace(/^['"]|['"]$/g, '');
+
+  if (raw.startsWith('sessionKey=') || raw.includes('sessionKey=')) {
+    return 'cookie';
+  }
+  if (raw.startsWith('sk-ant-sid')) {
+    return 'cookie';
+  }
+  if (raw.startsWith('sk-ant-oat')) {
+    return 'token';
+  }
+  if (raw.startsWith('eyJ')) {
+    return 'token';
+  }
+  if (raw.includes('__Secure-')) {
+    return raw.toLowerCase().includes('token') ? 'token' : 'cookie';
+  }
+
+  const p = provider.toLowerCase();
+  if (p === 'claude') {
+    if (raw.startsWith('sk-ant-api')) {
+      return 'api_key';
+    }
+    if (raw.length > 80 && !raw.startsWith('sk-')) {
+      return 'cookie';
+    }
+    return 'api_key';
+  } else if (p === 'chatgpt') {
+    if (raw.startsWith('sk-proj-') || raw.startsWith('sk-')) {
+      return 'api_key';
+    }
+    return raw.length > 100 ? 'token' : 'api_key';
+  } else if (p === 'gemini') {
+    if (raw.startsWith('AIzaSy')) {
+      return 'api_key';
+    }
+    if (raw.length > 50) {
+      return 'cookie';
+    }
+    return 'cookie';
+  }
+
+  return 'api_key';
+}
+
 export class CredentialStore {
   private _path: string;
   private _key: Buffer;
@@ -205,9 +302,87 @@ export class CredentialStore {
     return cred;
   }
 
+  get path(): string {
+    return this._path;
+  }
+
   remove(provider: string): void {
     delete this._creds[provider];
     this._save();
+  }
+
+  flush(secureWipe = true): number {
+    const count = Object.keys(this._creds).length;
+    this._creds = {};
+
+    if (fs.existsSync(this._path)) {
+      try {
+        if (secureWipe) {
+          const size = fs.statSync(this._path).size;
+          const randomBuf = crypto.randomBytes(size || 128);
+          fs.writeFileSync(this._path, randomBuf);
+        }
+        fs.unlinkSync(this._path);
+      } catch { /* ignore */ }
+    }
+
+    try {
+      const dir = path.dirname(this._path);
+      if (fs.existsSync(dir)) {
+        for (const f of fs.readdirSync(dir)) {
+          if (f.startsWith('.credentials-') && f.endsWith('.tmp')) {
+            try { fs.unlinkSync(path.join(dir, f)); } catch { /* ignore */ }
+          }
+        }
+      }
+    } catch { /* ignore */ }
+
+    return count;
+  }
+
+  storageInfo(): Record<string, unknown> {
+    const exists = fs.existsSync(this._path);
+    let sizeBytes = 0;
+    let filePermissions: string | null = null;
+    let dirPermissions: string | null = null;
+
+    if (exists) {
+      const stat = fs.statSync(this._path);
+      sizeBytes = stat.size;
+      filePermissions = '0o' + (stat.mode & 0o777).toString(8);
+    }
+    const dir = path.dirname(this._path);
+    if (fs.existsSync(dir)) {
+      const dStat = fs.statSync(dir);
+      dirPermissions = '0o' + (dStat.mode & 0o777).toString(8);
+    }
+
+    const stored: Record<string, unknown> = {};
+    for (const [name, cred] of Object.entries(this._creds)) {
+      const val = cred.value ?? '';
+      const masked = val.length > 8 ? `${val.slice(0, 4)}...${val.slice(-4)}` : '***';
+      stored[name] = {
+        auth_type: cred.auth_type,
+        email: cred.email,
+        plan: cred.plan,
+        is_expired: isCredentialExpired(cred),
+        created_at: cred.created_at,
+        expires_at: cred.expires_at,
+        masked_value: masked,
+      };
+    }
+
+    return {
+      credentials_file: this._path,
+      credentials_dir: dir,
+      file_exists: exists,
+      size_bytes: sizeBytes,
+      file_permissions: filePermissions,
+      dir_permissions: dirPermissions,
+      encryption: 'PBKDF2-HMAC-SHA256 (100k rounds) + Hardware UUID key + XOR stream',
+      provider_count: Object.keys(this._creds).length,
+      providers: stored,
+    };
   }
 
   allProviders(): Record<string, Credential> {
@@ -231,8 +406,24 @@ export class CredentialStore {
           plan: cred.plan,
           display_name: cred.display_name,
         };
+      } else if (cred && isCredentialExpired(cred)) {
+        result[name] = { status: 'expired' };
       } else {
         result[name] = { status: 'logged_out' };
+      }
+    }
+    for (const [name, cred] of Object.entries(this._creds)) {
+      if (!(name in result)) {
+        if (!isCredentialExpired(cred)) {
+          result[name] = {
+            status: 'logged_in',
+            email: cred.email,
+            plan: cred.plan,
+            display_name: cred.display_name,
+          };
+        } else {
+          result[name] = { status: 'expired' };
+        }
       }
     }
     return result;
@@ -263,18 +454,46 @@ export class AuthManager {
 
   isLoggedIn(provider: string): boolean {
     const cred = this.store.get(provider);
-    return cred !== null;
+    return cred !== null && !isCredentialExpired(cred);
   }
 
   status(): Record<string, Record<string, unknown>> {
     return this.store.status();
   }
 
+  storeCredential(
+    provider: string,
+    value: string,
+    opts?: { authType?: string; email?: string; plan?: string },
+  ): Credential {
+    const cleaned = cleanToken(provider, value);
+    if (!cleaned) {
+      throw new Error('Credential value cannot be empty');
+    }
+
+    const authType = (!opts?.authType || opts.authType === 'auto')
+      ? detectAuthType(provider, value)
+      : opts.authType;
+
+    if (authType === 'cookie' || authType === 'token') {
+      this.storeSessionToken(provider, cleaned, {
+        email: opts?.email,
+        plan: opts?.plan,
+        authType,
+      });
+    } else {
+      this.storeApiKey(provider, cleaned);
+    }
+
+    return this.store.get(provider)!;
+  }
+
   storeApiKey(provider: string, apiKey: string): void {
+    const cleaned = cleanToken(provider, apiKey);
     this.store.store({
       provider,
       auth_type: 'api_key',
-      value: apiKey,
+      value: cleaned,
       created_at: Date.now() / 1000,
     });
     this._notify(provider, 'logged_in');
@@ -285,10 +504,11 @@ export class AuthManager {
     token: string,
     opts?: { email?: string; plan?: string; authType?: string },
   ): void {
+    const cleaned = cleanToken(provider, token);
     this.store.store({
       provider,
       auth_type: opts?.authType ?? 'cookie',
-      value: token,
+      value: cleaned,
       email: opts?.email,
       plan: opts?.plan,
       expires_at: Date.now() / 1000 + 30 * 86400, // 30 days
@@ -385,9 +605,49 @@ align-items:center;height:100vh;background:#0d1117;color:#c9d1d9">
   }
 
   logoutAll(): void {
-    for (const provider of Object.keys(PROVIDER_AUTH)) {
+    const providers = new Set([...Object.keys(PROVIDER_AUTH), ...Object.keys(this.store.allProviders())]);
+    for (const provider of providers) {
       this.store.remove(provider);
       this._notify(provider, 'logged_out');
     }
+  }
+
+  flush(includeMemory = false, memoryDir = '.oma_memory'): {
+    flushedCredentialsCount: number;
+    memoryFilesRemoved: number;
+    credentialsFile: string;
+    status: string;
+  } {
+    const providers = new Set([...Object.keys(PROVIDER_AUTH), ...Object.keys(this.store.allProviders())]);
+    for (const provider of providers) {
+      this._notify(provider, 'logged_out');
+    }
+
+    const count = this.store.flush(true);
+
+    let memoryFlushed = 0;
+    if (includeMemory && fs.existsSync(memoryDir)) {
+      try {
+        for (const file of fs.readdirSync(memoryDir)) {
+          if (file.endsWith('.json')) {
+            try {
+              fs.unlinkSync(path.join(memoryDir, file));
+              memoryFlushed++;
+            } catch { /* ignore */ }
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    return {
+      flushedCredentialsCount: count,
+      memoryFilesRemoved: memoryFlushed,
+      credentialsFile: this.store.path,
+      status: 'flushed',
+    };
+  }
+
+  storageInfo(): Record<string, unknown> {
+    return this.store.storageInfo();
   }
 }

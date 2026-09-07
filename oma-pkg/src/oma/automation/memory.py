@@ -11,12 +11,13 @@ Memory management for multi-agent runs:
 The memory layer answers: "what does the next worker need to know?"
 """
 
-import json
-import time
 import hashlib
+import json
+import os
+import time
 from dataclasses import dataclass, field
-from typing import Any, Optional, List
 from pathlib import Path
+from typing import Any, List, Optional
 
 
 @dataclass
@@ -140,7 +141,11 @@ class PersistentMemory:
 
     def __init__(self, base_dir: str = ".oma_memory"):
         self.base = Path(base_dir)
-        self.base.mkdir(parents=True, exist_ok=True)
+        self.base.mkdir(parents=True, exist_ok=True, mode=0o700)
+        try:
+            os.chmod(self.base, 0o700)
+        except OSError:
+            pass
 
     def _path(self, task_id: str) -> Path:
         return self.base / f"{task_id}.json"
@@ -153,9 +158,12 @@ class PersistentMemory:
 
     def save(self, task_id: str, data: dict) -> None:
         data["updated_at"] = time.time()
-        self._path(task_id).write_text(
-            json.dumps(data, indent=2, default=str)
-        )
+        p = self._path(task_id)
+        p.write_text(json.dumps(data, indent=2, default=str))
+        try:
+            os.chmod(p, 0o600)
+        except OSError:
+            pass
 
     def append_handoff(self, task_id: str, handoff_summary: str,
                        worker_id: str = "") -> None:
@@ -173,6 +181,36 @@ class PersistentMemory:
         data = self.load(task_id)
         data["entries"].update(working.to_dict())
         self.save(task_id, data)
+
+    def flush(self, task_id: str | None = None) -> int:
+        """
+        Flush persistent task memory.
+        If task_id is specified, removes only that task's file.
+        If task_id is None, wipes all tasks in the persistent store.
+        Returns the number of files deleted.
+        """
+        if task_id:
+            p = self._path(task_id)
+            if p.exists():
+                p.unlink()
+                return 1
+            return 0
+
+        count = 0
+        if self.base.exists():
+            for f in self.base.glob("*.json"):
+                try:
+                    f.unlink()
+                    count += 1
+                except OSError:
+                    pass
+        return count
+
+    def list_tasks(self) -> list[str]:
+        """List all task IDs currently stored in persistent memory."""
+        if not self.base.exists():
+            return []
+        return [f.stem for f in self.base.glob("*.json")]
 
 
 class ContextOptimizer:

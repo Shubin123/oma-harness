@@ -8,6 +8,8 @@ from oma.providers.base import Provider, ProviderResponse, ErrorClass, RateLimit
 from oma.providers.registry import ProviderRegistry, ProviderHealth
 from oma.providers.http_providers import PROVIDER_CONFIGS, _ParsedResponse
 
+pytestmark = pytest.mark.unit
+
 
 class TestProviderResponse:
     def test_ok_when_no_error(self):
