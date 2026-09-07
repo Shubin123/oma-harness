@@ -5,7 +5,7 @@ A graphical SPA served at http://localhost:8384 that provides:
   - Subscription-based login for Claude, ChatGPT, Gemini
   - API key entry as fallback
   - Provider health monitoring
-  - Task execution with progress
+  - Task execution with RALPH phase visualization
   - Live log stream
   - Dark/light theme
 
@@ -17,6 +17,7 @@ import json
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
 from urllib.parse import urlparse
 
 DASHBOARD_HTML = r"""<!doctype html>
@@ -132,6 +133,7 @@ DASHBOARD_HTML = r"""<!doctype html>
   .badge-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); }
   .badge-blue { background: rgba(88,166,255,0.15); color: var(--accent); }
   .badge-gray { background: rgba(139,148,158,0.15); color: var(--fg2); }
+  .badge-purple { background: rgba(188,140,255,0.15); color: var(--purple); }
 
   /* ---- setup view ---- */
   .setup-view { max-width: 640px; }
@@ -235,6 +237,170 @@ DASHBOARD_HTML = r"""<!doctype html>
   .log-error { color: var(--red); }
   .log-success { color: var(--green); }
 
+  /* ---- RALPH phase stepper ---- */
+  .ralph-stepper {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; padding: 20px 16px; position: relative;
+  }
+  .ralph-phase {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    position: relative; z-index: 1; flex: 0 0 auto;
+  }
+  .ralph-node {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; font-family: var(--mono);
+    border: 2px solid var(--border); background: var(--bg);
+    color: var(--fg2); transition: all 0.3s ease;
+    position: relative;
+  }
+  .ralph-node.idle { border-color: var(--border); color: var(--fg2); }
+  .ralph-node.active {
+    border-color: var(--accent); color: var(--accent);
+    background: rgba(88,166,255,0.1);
+    box-shadow: 0 0 12px rgba(88,166,255,0.3);
+  }
+  .ralph-node.active::after {
+    content: ''; position: absolute; inset: -4px;
+    border: 2px solid var(--accent); border-radius: 50%;
+    animation: ralph-pulse 1.5s ease-in-out infinite;
+    opacity: 0;
+  }
+  .ralph-node.done {
+    border-color: var(--green); color: var(--green);
+    background: rgba(63,185,80,0.1);
+  }
+  .ralph-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--fg2); transition: color 0.3s;
+  }
+  .ralph-phase.active .ralph-label { color: var(--accent); }
+  .ralph-phase.done .ralph-label { color: var(--green); }
+
+  .ralph-connector {
+    width: 32px; height: 2px; background: var(--border);
+    margin-bottom: 20px; transition: background 0.3s;
+  }
+  .ralph-connector.done { background: var(--green); }
+  .ralph-connector.active {
+    background: linear-gradient(90deg, var(--green), var(--accent));
+  }
+
+  .ralph-iteration {
+    text-align: center; margin-top: 8px;
+    font-size: 11px; color: var(--fg2); font-family: var(--mono);
+  }
+
+  @keyframes ralph-pulse {
+    0% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 0; transform: scale(1.4); }
+    100% { opacity: 0; transform: scale(1.4); }
+  }
+
+  /* ---- DAG Workflow Editor ---- */
+  .wf-editor { display: flex; flex-direction: column; height: calc(100vh - 130px); gap: 0; }
+  .wf-toolbar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0;
+    flex-shrink: 0;
+  }
+  .wf-toolbar .btn { font-size: 11px; padding: 4px 10px; }
+  .wf-toolbar select {
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--fg); font-size: 12px; padding: 4px 8px; font-family: var(--sans);
+    outline: none; cursor: pointer;
+  }
+  .wf-toolbar select:focus { border-color: var(--accent); }
+  .wf-toolbar-sep { width: 1px; height: 20px; background: var(--border); }
+  .wf-toolbar-label { font-size: 11px; color: var(--fg2); font-weight: 500; }
+
+  .wf-body { display: flex; flex: 1; min-height: 0; border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; }
+
+  /* node palette */
+  .wf-palette {
+    width: 200px; background: var(--bg2); border-right: 1px solid var(--border);
+    overflow-y: auto; flex-shrink: 0; padding: 8px;
+  }
+  .wf-palette-section { margin-bottom: 12px; }
+  .wf-palette-title {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--fg2); margin-bottom: 6px; padding: 0 4px;
+  }
+  .wf-palette-node {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+    border-radius: var(--radius-sm); cursor: grab; font-size: 12px;
+    color: var(--fg); transition: background 0.15s; user-select: none;
+    border: 1px solid transparent; margin-bottom: 2px;
+  }
+  .wf-palette-node:hover { background: rgba(88,166,255,0.06); border-color: var(--border); }
+  .wf-palette-node:active { cursor: grabbing; }
+  .wf-palette-icon {
+    width: 24px; height: 24px; border-radius: 6px; display: flex;
+    align-items: center; justify-content: center; font-size: 11px;
+    font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+
+  /* SVG canvas */
+  .wf-canvas-wrap {
+    flex: 1; position: relative; overflow: hidden; background: var(--bg);
+    background-image: radial-gradient(circle, var(--border2) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .wf-canvas-wrap svg { width: 100%; height: 100%; }
+
+  /* SVG node styling */
+  .wf-svg-node { cursor: grab; }
+  .wf-svg-node:active { cursor: grabbing; }
+  .wf-svg-node rect.node-body {
+    rx: 10; ry: 10; stroke-width: 1.5;
+    transition: filter 0.15s, stroke 0.15s;
+  }
+  .wf-svg-node:hover rect.node-body { filter: brightness(1.1); }
+  .wf-svg-node.selected rect.node-body { stroke: var(--accent) !important; stroke-width: 2.5; filter: drop-shadow(0 0 8px rgba(88,166,255,0.3)); }
+  .wf-svg-node text { font-family: var(--sans); pointer-events: none; }
+  .wf-svg-node .node-title { font-size: 12px; font-weight: 600; }
+  .wf-svg-node .node-subtitle { font-size: 10px; fill: var(--fg2); }
+  .wf-svg-node .node-icon-text { font-size: 11px; font-weight: 700; fill: #fff; font-family: var(--mono); }
+
+  .wf-port {
+    cursor: crosshair; transition: r 0.15s;
+  }
+  .wf-port:hover { r: 7; }
+
+  .wf-edge { fill: none; stroke-width: 2; pointer-events: stroke; cursor: pointer; }
+  .wf-edge:hover { stroke-width: 3; }
+  .wf-edge-temp { fill: none; stroke-width: 2; stroke-dasharray: 6 4; pointer-events: none; }
+
+  /* minimap */
+  .wf-minimap {
+    position: absolute; bottom: 12px; right: 12px; width: 160px; height: 100px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    overflow: hidden; opacity: 0.85; pointer-events: none;
+  }
+  .wf-minimap svg { width: 100%; height: 100%; }
+
+  /* node detail panel */
+  .wf-detail {
+    width: 260px; background: var(--bg2); border-left: 1px solid var(--border);
+    overflow-y: auto; flex-shrink: 0; padding: 14px; display: none;
+  }
+  .wf-detail.open { display: block; }
+  .wf-detail-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  .wf-detail label { font-size: 11px; font-weight: 500; color: var(--fg2); display: block; margin-bottom: 3px; margin-top: 10px; }
+  .wf-detail input, .wf-detail select, .wf-detail textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 6px 10px; color: var(--fg); font-size: 12px; font-family: var(--sans); outline: none;
+  }
+  .wf-detail input:focus, .wf-detail select:focus, .wf-detail textarea:focus { border-color: var(--accent); }
+  .wf-detail textarea { resize: vertical; min-height: 60px; font-family: var(--mono); }
+
+  /* zoom indicator */
+  .wf-zoom {
+    position: absolute; bottom: 12px; left: 12px; font-size: 11px; color: var(--fg2);
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 3px 8px; font-family: var(--mono);
+  }
+
   /* ---- theme ---- */
   .theme-toggle {
     background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -273,6 +439,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     <div class="header-right">
       <div class="nav-tabs">
         <button class="nav-tab active" onclick="showView('task')" id="nav-task">Task</button>
+        <button class="nav-tab" onclick="showView('workflows')" id="nav-workflows">Workflows</button>
         <button class="nav-tab" onclick="showView('connect')" id="nav-connect">Connect</button>
       </div>
       <span id="conn-status" class="badge badge-gray">0 providers</span>
@@ -474,6 +641,145 @@ DASHBOARD_HTML = r"""<!doctype html>
         </div>
       </div>
 
+      <!-- Workflow Editor View -->
+      <div id="view-workflows" hidden style="max-width:none">
+        <div class="wf-editor">
+          <div class="wf-toolbar">
+            <select id="wf-template-select" onchange="loadTemplate(this.value)">
+              <option value="">-- Load Template --</option>
+              <option value="simple_agent">Simple Agent</option>
+              <option value="multi_agent">Multi-Agent Pipeline</option>
+              <option value="rag_basic">RAG: Basic</option>
+              <option value="rag_conversational">RAG: Conversational</option>
+              <option value="rag_multi_source">RAG: Multi-Source</option>
+              <option value="rag_agentic">RAG: Agentic</option>
+              <option value="ralph_loop">RALPH Loop</option>
+              <option value="map_reduce">Map-Reduce</option>
+            </select>
+            <div class="wf-toolbar-sep"></div>
+            <button class="btn btn-ghost" onclick="wfZoomIn()" title="Zoom in">+</button>
+            <button class="btn btn-ghost" onclick="wfZoomOut()" title="Zoom out">&minus;</button>
+            <button class="btn btn-ghost" onclick="wfFitView()" title="Fit to view">Fit</button>
+            <div class="wf-toolbar-sep"></div>
+            <button class="btn btn-ghost" onclick="wfDeleteSelected()" title="Delete selected">&#128465;</button>
+            <button class="btn btn-ghost" onclick="wfClearCanvas()" title="Clear all">Clear</button>
+            <div style="flex:1"></div>
+            <span class="wf-toolbar-label" id="wf-node-count">0 nodes</span>
+            <div class="wf-toolbar-sep"></div>
+            <button class="btn btn-primary" onclick="wfRunWorkflow()" id="wf-run-btn">&#9654; Run</button>
+            <button class="btn btn-success" onclick="wfSaveWorkflow()">Save</button>
+          </div>
+          <div class="wf-body">
+            <div class="wf-palette">
+              <div class="wf-palette-section">
+                <div class="wf-palette-title">Control</div>
+                <div class="wf-palette-node" draggable="true" data-node-type="start">
+                  <div class="wf-palette-icon" style="background:var(--green)">&#9654;</div> Start
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="end">
+                  <div class="wf-palette-icon" style="background:var(--red)">&#9632;</div> End
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="branch">
+                  <div class="wf-palette-icon" style="background:var(--yellow)">&#8901;</div> Branch
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="merge">
+                  <div class="wf-palette-icon" style="background:var(--orange)">M</div> Merge
+                </div>
+              </div>
+              <div class="wf-palette-section">
+                <div class="wf-palette-title">Agents</div>
+                <div class="wf-palette-node" draggable="true" data-node-type="agent">
+                  <div class="wf-palette-icon" style="background:var(--accent2)">A</div> Agent
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="sub_agent">
+                  <div class="wf-palette-icon" style="background:var(--purple)">S</div> Sub-Agent
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="ralph">
+                  <div class="wf-palette-icon" style="background:#d97706">R</div> RALPH Loop
+                </div>
+              </div>
+              <div class="wf-palette-section">
+                <div class="wf-palette-title">RAG</div>
+                <div class="wf-palette-node" draggable="true" data-node-type="doc_loader">
+                  <div class="wf-palette-icon" style="background:#6366f1">D</div> Doc Loader
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="embedder">
+                  <div class="wf-palette-icon" style="background:#14b8a6">E</div> Embedder
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="vector_store">
+                  <div class="wf-palette-icon" style="background:#ec4899">V</div> Vector Store
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="retriever">
+                  <div class="wf-palette-icon" style="background:#f59e0b">R</div> Retriever
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="generator">
+                  <div class="wf-palette-icon" style="background:var(--accent2)">G</div> Generator
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="memory">
+                  <div class="wf-palette-icon" style="background:#8b5cf6">M</div> Memory
+                </div>
+              </div>
+              <div class="wf-palette-section">
+                <div class="wf-palette-title">Tools</div>
+                <div class="wf-palette-node" draggable="true" data-node-type="llm_provider">
+                  <div class="wf-palette-icon" style="background:#10a37f">L</div> LLM Provider
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="tool">
+                  <div class="wf-palette-icon" style="background:var(--fg2)">T</div> Tool
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="http">
+                  <div class="wf-palette-icon" style="background:#0ea5e9">H</div> HTTP Request
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="code">
+                  <div class="wf-palette-icon" style="background:#64748b">&#60;/&#62;</div> Code
+                </div>
+              </div>
+            </div>
+            <div class="wf-canvas-wrap" id="wf-canvas-wrap">
+              <svg id="wf-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <marker id="wf-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                    <path d="M0,0 L8,3 L0,6 Z" fill="var(--fg2)" />
+                  </marker>
+                  <marker id="wf-arrow-active" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                    <path d="M0,0 L8,3 L0,6 Z" fill="var(--accent)" />
+                  </marker>
+                </defs>
+                <g id="wf-canvas-g"></g>
+              </svg>
+              <div class="wf-zoom" id="wf-zoom-label">100%</div>
+              <div class="wf-minimap" id="wf-minimap">
+                <svg id="wf-minimap-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+              </div>
+            </div>
+            <div class="wf-detail" id="wf-detail">
+              <div class="wf-detail-title" id="wf-detail-title">Node</div>
+              <label>Name</label>
+              <input id="wf-d-name" oninput="wfUpdateNodeProp('name', this.value)">
+              <label>Type</label>
+              <input id="wf-d-type" disabled>
+              <label>Provider</label>
+              <select id="wf-d-provider" onchange="wfUpdateNodeProp('provider', this.value)">
+                <option value="">auto</option>
+                <option value="claude">Claude</option>
+                <option value="chatgpt">ChatGPT</option>
+                <option value="gemini">Gemini</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="glm">GLM</option>
+                <option value="kimi">Kimi</option>
+              </select>
+              <label>System Prompt</label>
+              <textarea id="wf-d-system" oninput="wfUpdateNodeProp('system', this.value)" placeholder="Optional system prompt..."></textarea>
+              <label>Config (JSON)</label>
+              <textarea id="wf-d-config" oninput="wfUpdateNodeProp('config', this.value)" placeholder='{"temperature": 0.3}'></textarea>
+              <div style="margin-top:14px">
+                <button class="btn btn-danger btn-sm" onclick="wfDeleteSelected()" style="width:100%">Delete Node</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Task View -->
       <div id="view-task">
         <div class="card">
@@ -496,6 +802,43 @@ DASHBOARD_HTML = r"""<!doctype html>
                 <button class="btn btn-danger" id="stop-btn" onclick="stopTask()" disabled>&#9632; Stop</button>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- RALPH Phase Stepper -->
+        <div class="card" id="ralph-card" hidden>
+          <div class="card-header">
+            <h2>RALPH Loop</h2>
+            <span id="ralph-iteration" class="badge badge-purple">iteration 0</span>
+          </div>
+          <div class="card-body" style="padding:8px 16px 16px">
+            <div class="ralph-stepper">
+              <div class="ralph-phase" id="rp-reason">
+                <div class="ralph-node idle" id="rn-reason">R</div>
+                <div class="ralph-label">Reason</div>
+              </div>
+              <div class="ralph-connector" id="rc-ra"></div>
+              <div class="ralph-phase" id="rp-act">
+                <div class="ralph-node idle" id="rn-act">A</div>
+                <div class="ralph-label">Act</div>
+              </div>
+              <div class="ralph-connector" id="rc-al"></div>
+              <div class="ralph-phase" id="rp-learn">
+                <div class="ralph-node idle" id="rn-learn">L</div>
+                <div class="ralph-label">Learn</div>
+              </div>
+              <div class="ralph-connector" id="rc-lp"></div>
+              <div class="ralph-phase" id="rp-plan">
+                <div class="ralph-node idle" id="rn-plan">P</div>
+                <div class="ralph-label">Plan</div>
+              </div>
+              <div class="ralph-connector" id="rc-ph"></div>
+              <div class="ralph-phase" id="rp-handoff">
+                <div class="ralph-node idle" id="rn-handoff">H</div>
+                <div class="ralph-label">Handoff</div>
+              </div>
+            </div>
+            <div id="ralph-detail" style="font-size:12px; color:var(--fg2); text-align:center; margin-top:4px"></div>
           </div>
         </div>
 
@@ -540,6 +883,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 // ---- state ----
 let connectedCount = 0;
 let taskRunning = false;
+let lastPhaseEventCount = 0;
 
 const PROVIDERS = {
   claude:   { name: 'Claude',   icon: 'C', bg: '#d97706' },
@@ -550,12 +894,23 @@ const PROVIDERS = {
   kimi:     { name: 'Kimi',     icon: 'K', bg: '#14b8a6' },
 };
 
+const RALPH_PHASES = ['reason', 'act', 'learn', 'plan', 'handoff'];
+const RALPH_LABELS = {
+  reason: 'Analyzing task state and determining approach',
+  act: 'Executing solve attempt with provider',
+  learn: 'Evaluating result against criteria',
+  plan: 'Adjusting strategy based on lessons',
+  handoff: 'Preparing handoff or continuing loop',
+};
+
 // ---- views ----
 function showView(view) {
   document.getElementById('view-task').hidden = (view !== 'task');
   document.getElementById('view-connect').hidden = (view !== 'connect');
+  document.getElementById('view-workflows').hidden = (view !== 'workflows');
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('nav-' + view).classList.add('active');
+  if (view === 'workflows') wfInit();
 }
 
 // ---- logging ----
@@ -572,6 +927,75 @@ function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 function toggleConnect(id) {
   const body = document.getElementById('cb-' + id);
   body.classList.toggle('open');
+}
+
+// ---- RALPH phase rendering ----
+function updateRalphPhase(currentPhase, iteration, detail) {
+  const phaseOrder = RALPH_PHASES;
+  const currentIdx = phaseOrder.indexOf(currentPhase);
+
+  phaseOrder.forEach((phase, idx) => {
+    const node = document.getElementById('rn-' + phase);
+    const phaseEl = document.getElementById('rp-' + phase);
+    if (!node || !phaseEl) return;
+
+    node.className = 'ralph-node';
+    phaseEl.className = 'ralph-phase';
+
+    if (idx < currentIdx) {
+      node.classList.add('done');
+      phaseEl.classList.add('done');
+    } else if (idx === currentIdx) {
+      node.classList.add('active');
+      phaseEl.classList.add('active');
+    } else {
+      node.classList.add('idle');
+    }
+  });
+
+  // connectors
+  const connectors = [
+    { id: 'rc-ra', from: 0, to: 1 },
+    { id: 'rc-al', from: 1, to: 2 },
+    { id: 'rc-lp', from: 2, to: 3 },
+    { id: 'rc-ph', from: 3, to: 4 },
+  ];
+  connectors.forEach(c => {
+    const el = document.getElementById(c.id);
+    if (!el) return;
+    el.className = 'ralph-connector';
+    if (currentIdx > c.to) el.classList.add('done');
+    else if (currentIdx === c.to) el.classList.add('active');
+  });
+
+  // iteration badge
+  const iterEl = document.getElementById('ralph-iteration');
+  if (iterEl && iteration > 0) {
+    iterEl.textContent = 'iteration ' + iteration;
+  }
+
+  // detail text
+  const detailEl = document.getElementById('ralph-detail');
+  if (detailEl) {
+    detailEl.textContent = detail || RALPH_LABELS[currentPhase] || '';
+  }
+}
+
+function resetRalphStepper() {
+  RALPH_PHASES.forEach(phase => {
+    const node = document.getElementById('rn-' + phase);
+    const phaseEl = document.getElementById('rp-' + phase);
+    if (node) node.className = 'ralph-node idle';
+    if (phaseEl) phaseEl.className = 'ralph-phase';
+  });
+  ['rc-ra','rc-al','rc-lp','rc-ph'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'ralph-connector';
+  });
+  const iterEl = document.getElementById('ralph-iteration');
+  if (iterEl) iterEl.textContent = 'iteration 0';
+  const detailEl = document.getElementById('ralph-detail');
+  if (detailEl) detailEl.textContent = '';
 }
 
 // ---- connect provider (subscription) ----
@@ -730,7 +1154,7 @@ function renderProviders(data) {
   }
 }
 
-// ---- task execution ----
+// ---- task execution (async via /api/run + polling) ----
 async function runTask() {
   const obj = document.getElementById('objective').value.trim();
   if (!obj) { addLog('No objective set', 'warn'); return; }
@@ -749,15 +1173,18 @@ async function runTask() {
   }
 
   taskRunning = true;
+  lastPhaseEventCount = 0;
   document.getElementById('run-btn').disabled = true;
   document.getElementById('stop-btn').disabled = false;
   document.getElementById('task-badge').className = 'badge badge-blue';
   document.getElementById('task-badge').textContent = 'running';
+  document.getElementById('ralph-card').hidden = false;
   document.getElementById('progress-card').hidden = false;
   document.getElementById('result-card').hidden = true;
   document.getElementById('step-list').innerHTML = '';
   document.getElementById('progress-fill').style.width = '0%';
-  addLog('Starting task: ' + obj);
+  resetRalphStepper();
+  addLog('Starting RALPH loop: ' + obj);
 
   try {
     const r = await fetch('/api/run', {
@@ -773,14 +1200,44 @@ async function runTask() {
       document.getElementById('task-badge').textContent = 'error';
     } else {
       addLog(`Task complete: ${data.status} (confidence: ${(data.confidence * 100).toFixed(0)}%)`, 'success');
-      document.getElementById('task-badge').className = 'badge badge-green';
+      document.getElementById('task-badge').className = data.status === 'done' ? 'badge badge-green' : 'badge badge-yellow';
       document.getElementById('task-badge').textContent = data.status;
       document.getElementById('progress-fill').style.width = '100%';
       document.getElementById('progress-pct').textContent = '100%';
 
+      // mark all ralph phases as done
+      RALPH_PHASES.forEach(p => {
+        const node = document.getElementById('rn-' + p);
+        const phaseEl = document.getElementById('rp-' + p);
+        if (node) { node.className = 'ralph-node done'; }
+        if (phaseEl) { phaseEl.className = 'ralph-phase done'; }
+      });
+      ['rc-ra','rc-al','rc-lp','rc-ph'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'ralph-connector done';
+      });
+      const detailEl = document.getElementById('ralph-detail');
+      if (detailEl) detailEl.textContent = data.status === 'done' ? 'Task completed successfully' : 'Task parked for next worker';
+
       if (data.result) {
         document.getElementById('result-card').hidden = false;
         document.getElementById('result-text').textContent = data.result;
+      }
+
+      // render lessons if available
+      if (data.lessons && data.lessons.length > 0) {
+        const stepList = document.getElementById('step-list');
+        data.lessons.forEach(l => {
+          const cls = l.succeeded ? 'done' : 'pending';
+          const icon = l.succeeded ? '&#10003;' : '&#10007;';
+          stepList.innerHTML += `<li class="step-item">
+            <div class="step-icon ${cls}">${icon}</div>
+            <div>
+              <div>Iteration ${l.iteration} (${l.provider || 'n/a'})</div>
+              <div style="font-size:11px; color:var(--fg2)">conf delta: ${(l.confidence_delta || 0).toFixed(2)}</div>
+            </div>
+          </li>`;
+        });
       }
     }
   } catch (e) {
@@ -819,6 +1276,43 @@ async function fetchStatus() {
     const r = await fetch('/api/status');
     const data = await r.json();
     renderProviders(data.auth || {});
+
+    // update RALPH phase if task is running
+    if (data.ralph && taskRunning) {
+      const phase = data.ralph.current_phase;
+      const events = data.ralph.phase_events || [];
+      const total = data.ralph.total_events || 0;
+
+      if (phase && phase !== 'idle') {
+        // find latest iteration from events
+        let iteration = 0;
+        if (events.length > 0) {
+          iteration = events[events.length - 1].iteration || 0;
+        }
+        updateRalphPhase(phase, iteration);
+      }
+
+      // log new phase events
+      if (total > lastPhaseEventCount && events.length > 0) {
+        const newEvents = events.slice(-(total - lastPhaseEventCount));
+        newEvents.forEach(ev => {
+          if (ev.phase !== 'handoff' || (ev.data && ev.data.trigger !== 'continue')) {
+            addLog(`RALPH [${ev.phase.toUpperCase()}] iteration ${ev.iteration}`, 'info');
+          }
+        });
+        lastPhaseEventCount = total;
+      }
+
+      // update progress bar
+      if (events.length > 0) {
+        const lastEv = events[events.length - 1];
+        if (lastEv.data && lastEv.data.confidence !== undefined) {
+          const pct = Math.round(lastEv.data.confidence * 100);
+          document.getElementById('progress-fill').style.width = pct + '%';
+          document.getElementById('progress-pct').textContent = pct + '%';
+        }
+      }
+    }
   } catch (e) {}
 }
 
@@ -828,19 +1322,683 @@ function toggleTheme() {
   try { localStorage.setItem('oma-theme', document.body.classList.contains('light') ? 'light' : 'dark'); } catch(e) {}
 }
 
+// ===========================================================================
+// DAG Workflow Editor
+// ===========================================================================
+
+const NODE_W = 180, NODE_H = 64;
+const NODE_DEFS = {
+  start:        { label: 'Start',        icon: '▶', bg: '#3fb950', cat: 'control', ports: { in: 0, out: 1 } },
+  end:          { label: 'End',          icon: '■', bg: '#f85149', cat: 'control', ports: { in: 1, out: 0 } },
+  branch:       { label: 'Branch',       icon: '⋅', bg: '#d29922', cat: 'control', ports: { in: 1, out: 2 } },
+  merge:        { label: 'Merge',        icon: 'M',     bg: '#f0883e', cat: 'control', ports: { in: 2, out: 1 } },
+  agent:        { label: 'Agent',        icon: 'A',     bg: '#1f6feb', cat: 'agent',   ports: { in: 1, out: 1 } },
+  sub_agent:    { label: 'Sub-Agent',    icon: 'S',     bg: '#bc8cff', cat: 'agent',   ports: { in: 1, out: 1 } },
+  ralph:        { label: 'RALPH Loop',   icon: 'R',     bg: '#d97706', cat: 'agent',   ports: { in: 1, out: 1 } },
+  doc_loader:   { label: 'Doc Loader',   icon: 'D',     bg: '#6366f1', cat: 'rag',     ports: { in: 0, out: 1 } },
+  embedder:     { label: 'Embedder',     icon: 'E',     bg: '#14b8a6', cat: 'rag',     ports: { in: 1, out: 1 } },
+  vector_store: { label: 'Vector Store', icon: 'V',     bg: '#ec4899', cat: 'rag',     ports: { in: 1, out: 1 } },
+  retriever:    { label: 'Retriever',    icon: 'R',     bg: '#f59e0b', cat: 'rag',     ports: { in: 1, out: 1 } },
+  generator:    { label: 'Generator',    icon: 'G',     bg: '#1f6feb', cat: 'rag',     ports: { in: 1, out: 1 } },
+  memory:       { label: 'Memory',       icon: 'M',     bg: '#8b5cf6', cat: 'rag',     ports: { in: 1, out: 1 } },
+  llm_provider: { label: 'LLM Provider', icon: 'L',     bg: '#10a37f', cat: 'tool',    ports: { in: 1, out: 1 } },
+  tool:         { label: 'Tool',         icon: 'T',     bg: '#8b949e', cat: 'tool',    ports: { in: 1, out: 1 } },
+  http:         { label: 'HTTP Request', icon: 'H',     bg: '#0ea5e9', cat: 'tool',    ports: { in: 1, out: 1 } },
+  code:         { label: 'Code',         icon: '</>', bg: '#64748b', cat: 'tool',    ports: { in: 1, out: 1 } },
+};
+
+// ---- workflow templates ----
+const WF_TEMPLATES = {
+  simple_agent: {
+    name: 'Simple Agent',
+    nodes: [
+      { id: 'n1', type: 'start', x: 80, y: 200, name: 'Start' },
+      { id: 'n2', type: 'agent', x: 340, y: 200, name: 'Agent' },
+      { id: 'n3', type: 'end', x: 600, y: 200, name: 'End' },
+    ],
+    edges: [{ from: 'n1', to: 'n2', fromPort: 0, toPort: 0 }, { from: 'n2', to: 'n3', fromPort: 0, toPort: 0 }],
+  },
+  multi_agent: {
+    name: 'Multi-Agent Pipeline',
+    nodes: [
+      { id: 'n1', type: 'start', x: 60, y: 200, name: 'Start' },
+      { id: 'n2', type: 'agent', x: 280, y: 200, name: 'Planner' },
+      { id: 'n3', type: 'sub_agent', x: 500, y: 120, name: 'Worker A' },
+      { id: 'n4', type: 'sub_agent', x: 500, y: 280, name: 'Worker B' },
+      { id: 'n5', type: 'merge', x: 720, y: 200, name: 'Merge' },
+      { id: 'n6', type: 'agent', x: 940, y: 200, name: 'Reviewer' },
+      { id: 'n7', type: 'end', x: 1160, y: 200, name: 'End' },
+    ],
+    edges: [
+      { from: 'n1', to: 'n2', fromPort: 0, toPort: 0 },
+      { from: 'n2', to: 'n3', fromPort: 0, toPort: 0 },
+      { from: 'n2', to: 'n4', fromPort: 0, toPort: 0 },
+      { from: 'n3', to: 'n5', fromPort: 0, toPort: 0 },
+      { from: 'n4', to: 'n5', fromPort: 0, toPort: 1 },
+      { from: 'n5', to: 'n6', fromPort: 0, toPort: 0 },
+      { from: 'n6', to: 'n7', fromPort: 0, toPort: 0 },
+    ],
+  },
+  rag_basic: {
+    name: 'RAG: Basic',
+    nodes: [
+      { id: 'n1', type: 'doc_loader', x: 60, y: 200, name: 'Load Docs' },
+      { id: 'n2', type: 'embedder', x: 280, y: 200, name: 'Embed' },
+      { id: 'n3', type: 'vector_store', x: 500, y: 200, name: 'Store' },
+      { id: 'n4', type: 'retriever', x: 720, y: 200, name: 'Retrieve' },
+      { id: 'n5', type: 'generator', x: 940, y: 200, name: 'Generate' },
+    ],
+    edges: [
+      { from: 'n1', to: 'n2', fromPort: 0, toPort: 0 },
+      { from: 'n2', to: 'n3', fromPort: 0, toPort: 0 },
+      { from: 'n3', to: 'n4', fromPort: 0, toPort: 0 },
+      { from: 'n4', to: 'n5', fromPort: 0, toPort: 0 },
+    ],
+  },
+  rag_conversational: {
+    name: 'RAG: Conversational',
+    nodes: [
+      { id: 'n1', type: 'doc_loader', x: 60, y: 160, name: 'Load Docs' },
+      { id: 'n2', type: 'embedder', x: 280, y: 160, name: 'Embed' },
+      { id: 'n3', type: 'vector_store', x: 500, y: 160, name: 'Store' },
+      { id: 'n4', type: 'retriever', x: 720, y: 160, name: 'Retrieve' },
+      { id: 'n5', type: 'memory', x: 720, y: 310, name: 'Conv Memory' },
+      { id: 'n6', type: 'generator', x: 940, y: 220, name: 'Generate' },
+    ],
+    edges: [
+      { from: 'n1', to: 'n2', fromPort: 0, toPort: 0 },
+      { from: 'n2', to: 'n3', fromPort: 0, toPort: 0 },
+      { from: 'n3', to: 'n4', fromPort: 0, toPort: 0 },
+      { from: 'n4', to: 'n6', fromPort: 0, toPort: 0 },
+      { from: 'n5', to: 'n6', fromPort: 0, toPort: 0 },
+    ],
+  },
+  rag_multi_source: {
+    name: 'RAG: Multi-Source',
+    nodes: [
+      { id: 'n1', type: 'doc_loader', x: 60, y: 100, name: 'PDF Loader' },
+      { id: 'n2', type: 'doc_loader', x: 60, y: 240, name: 'Web Scraper' },
+      { id: 'n3', type: 'doc_loader', x: 60, y: 380, name: 'DB Connector' },
+      { id: 'n4', type: 'merge', x: 300, y: 240, name: 'Merge Sources' },
+      { id: 'n5', type: 'embedder', x: 520, y: 240, name: 'Embed' },
+      { id: 'n6', type: 'vector_store', x: 740, y: 240, name: 'Store' },
+      { id: 'n7', type: 'retriever', x: 960, y: 240, name: 'Retrieve' },
+      { id: 'n8', type: 'generator', x: 1180, y: 240, name: 'Generate' },
+    ],
+    edges: [
+      { from: 'n1', to: 'n4', fromPort: 0, toPort: 0 },
+      { from: 'n2', to: 'n4', fromPort: 0, toPort: 0 },
+      { from: 'n3', to: 'n4', fromPort: 0, toPort: 0 },
+      { from: 'n4', to: 'n5', fromPort: 0, toPort: 0 },
+      { from: 'n5', to: 'n6', fromPort: 0, toPort: 0 },
+      { from: 'n6', to: 'n7', fromPort: 0, toPort: 0 },
+      { from: 'n7', to: 'n8', fromPort: 0, toPort: 0 },
+    ],
+  },
+  rag_agentic: {
+    name: 'RAG: Agentic',
+    nodes: [
+      { id: 'n1', type: 'start', x: 60, y: 220, name: 'Query' },
+      { id: 'n2', type: 'ralph', x: 280, y: 220, name: 'RALPH Agent' },
+      { id: 'n3', type: 'branch', x: 500, y: 220, name: 'Needs RAG?' },
+      { id: 'n4', type: 'retriever', x: 720, y: 120, name: 'Retrieve' },
+      { id: 'n5', type: 'generator', x: 720, y: 320, name: 'Direct Gen' },
+      { id: 'n6', type: 'merge', x: 940, y: 220, name: 'Combine' },
+      { id: 'n7', type: 'end', x: 1160, y: 220, name: 'Response' },
+    ],
+    edges: [
+      { from: 'n1', to: 'n2', fromPort: 0, toPort: 0 },
+      { from: 'n2', to: 'n3', fromPort: 0, toPort: 0 },
+      { from: 'n3', to: 'n4', fromPort: 0, toPort: 0 },
+      { from: 'n3', to: 'n5', fromPort: 1, toPort: 0 },
+      { from: 'n4', to: 'n6', fromPort: 0, toPort: 0 },
+      { from: 'n5', to: 'n6', fromPort: 0, toPort: 1 },
+      { from: 'n6', to: 'n7', fromPort: 0, toPort: 0 },
+    ],
+  },
+  ralph_loop: {
+    name: 'RALPH Loop',
+    nodes: [
+      { id: 'n1', type: 'start', x: 60, y: 200, name: 'Input' },
+      { id: 'n2', type: 'ralph', x: 300, y: 200, name: 'Reason' },
+      { id: 'n3', type: 'agent', x: 520, y: 200, name: 'Act' },
+      { id: 'n4', type: 'sub_agent', x: 740, y: 200, name: 'Learn' },
+      { id: 'n5', type: 'agent', x: 960, y: 200, name: 'Plan' },
+      { id: 'n6', type: 'end', x: 1180, y: 200, name: 'Handoff' },
+    ],
+    edges: [
+      { from: 'n1', to: 'n2', fromPort: 0, toPort: 0 },
+      { from: 'n2', to: 'n3', fromPort: 0, toPort: 0 },
+      { from: 'n3', to: 'n4', fromPort: 0, toPort: 0 },
+      { from: 'n4', to: 'n5', fromPort: 0, toPort: 0 },
+      { from: 'n5', to: 'n6', fromPort: 0, toPort: 0 },
+    ],
+  },
+  map_reduce: {
+    name: 'Map-Reduce',
+    nodes: [
+      { id: 'n1', type: 'start', x: 60, y: 220, name: 'Input' },
+      { id: 'n2', type: 'code', x: 280, y: 220, name: 'Chunker' },
+      { id: 'n3', type: 'sub_agent', x: 500, y: 100, name: 'Map 1' },
+      { id: 'n4', type: 'sub_agent', x: 500, y: 220, name: 'Map 2' },
+      { id: 'n5', type: 'sub_agent', x: 500, y: 340, name: 'Map 3' },
+      { id: 'n6', type: 'merge', x: 720, y: 220, name: 'Reduce' },
+      { id: 'n7', type: 'agent', x: 940, y: 220, name: 'Summarize' },
+      { id: 'n8', type: 'end', x: 1160, y: 220, name: 'Output' },
+    ],
+    edges: [
+      { from: 'n1', to: 'n2', fromPort: 0, toPort: 0 },
+      { from: 'n2', to: 'n3', fromPort: 0, toPort: 0 },
+      { from: 'n2', to: 'n4', fromPort: 0, toPort: 0 },
+      { from: 'n2', to: 'n5', fromPort: 0, toPort: 0 },
+      { from: 'n3', to: 'n6', fromPort: 0, toPort: 0 },
+      { from: 'n4', to: 'n6', fromPort: 0, toPort: 0 },
+      { from: 'n5', to: 'n6', fromPort: 0, toPort: 0 },
+      { from: 'n6', to: 'n7', fromPort: 0, toPort: 0 },
+      { from: 'n7', to: 'n8', fromPort: 0, toPort: 0 },
+    ],
+  },
+};
+
+// ---- workflow state ----
+let wfNodes = [];
+let wfEdges = [];
+let wfNextId = 1;
+let wfSelectedNode = null;
+let wfDragging = null;
+let wfConnecting = null; // { nodeId, portType:'out', portIdx }
+let wfPan = { x: 0, y: 0 };
+let wfZoom = 1;
+let wfPanning = false;
+let wfPanStart = { x: 0, y: 0 };
+let wfInitDone = false;
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function wfInit() {
+  if (wfInitDone) return;
+  wfInitDone = true;
+  const wrap = document.getElementById('wf-canvas-wrap');
+  const svg = document.getElementById('wf-svg');
+
+  // palette drag-and-drop
+  document.querySelectorAll('.wf-palette-node').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', el.dataset.nodeType);
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+  });
+  wrap.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+  wrap.addEventListener('drop', e => {
+    e.preventDefault();
+    const nodeType = e.dataTransfer.getData('text/plain');
+    if (!nodeType || !NODE_DEFS[nodeType]) return;
+    const rect = wrap.getBoundingClientRect();
+    const x = (e.clientX - rect.left - wfPan.x) / wfZoom;
+    const y = (e.clientY - rect.top - wfPan.y) / wfZoom;
+    wfAddNode(nodeType, x - NODE_W / 2, y - NODE_H / 2);
+  });
+
+  // pan + zoom
+  svg.addEventListener('pointerdown', e => {
+    if (e.target === svg || e.target.id === 'wf-canvas-g') {
+      wfPanning = true;
+      wfPanStart = { x: e.clientX - wfPan.x, y: e.clientY - wfPan.y };
+      wfDeselectAll();
+      svg.style.cursor = 'grabbing';
+      svg.setPointerCapture(e.pointerId);
+    }
+  });
+  svg.addEventListener('pointermove', e => {
+    if (wfPanning) {
+      wfPan.x = e.clientX - wfPanStart.x;
+      wfPan.y = e.clientY - wfPanStart.y;
+      wfApplyTransform();
+    }
+    if (wfDragging) {
+      const rect = wrap.getBoundingClientRect();
+      wfDragging.node.x = (e.clientX - rect.left - wfPan.x) / wfZoom - wfDragging.ox;
+      wfDragging.node.y = (e.clientY - rect.top - wfPan.y) / wfZoom - wfDragging.oy;
+      wfRender();
+    }
+    if (wfConnecting) {
+      const rect = wrap.getBoundingClientRect();
+      const mx = (e.clientX - rect.left - wfPan.x) / wfZoom;
+      const my = (e.clientY - rect.top - wfPan.y) / wfZoom;
+      wfRenderTempEdge(mx, my);
+    }
+  });
+  svg.addEventListener('pointerup', e => {
+    if (wfPanning) {
+      wfPanning = false;
+      svg.style.cursor = '';
+    }
+    if (wfDragging) wfDragging = null;
+    if (wfConnecting) {
+      // check if released over a port
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      if (target && target.classList.contains('wf-port') && target.dataset.portType === 'in') {
+        const toId = target.dataset.nodeId;
+        const toPort = parseInt(target.dataset.portIdx);
+        if (toId !== wfConnecting.nodeId) {
+          wfEdges.push({ from: wfConnecting.nodeId, to: toId, fromPort: wfConnecting.portIdx, toPort });
+        }
+      }
+      wfConnecting = null;
+      wfRender();
+    }
+  });
+
+  wrap.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.08 : 0.08;
+    const newZoom = Math.max(0.15, Math.min(3, wfZoom + delta));
+    const rect = wrap.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    wfPan.x = mx - (mx - wfPan.x) * (newZoom / wfZoom);
+    wfPan.y = my - (my - wfPan.y) * (newZoom / wfZoom);
+    wfZoom = newZoom;
+    wfApplyTransform();
+    document.getElementById('wf-zoom-label').textContent = Math.round(wfZoom * 100) + '%';
+  }, { passive: false });
+
+  // keyboard
+  document.addEventListener('keydown', e => {
+    if (document.getElementById('view-workflows').hidden) return;
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+      wfDeleteSelected();
+    }
+  });
+
+  // load default
+  loadTemplate('simple_agent');
+}
+
+function wfApplyTransform() {
+  const g = document.getElementById('wf-canvas-g');
+  g.setAttribute('transform', `translate(${wfPan.x},${wfPan.y}) scale(${wfZoom})`);
+  wfUpdateMinimap();
+}
+
+function wfAddNode(type, x, y, name, id) {
+  const def = NODE_DEFS[type];
+  if (!def) return;
+  const node = {
+    id: id || ('n' + wfNextId++),
+    type,
+    x: x || 100,
+    y: y || 100,
+    name: name || def.label,
+    provider: '',
+    system: '',
+    config: '',
+  };
+  wfNodes.push(node);
+  wfRender();
+  return node;
+}
+
+function wfRender() {
+  const g = document.getElementById('wf-canvas-g');
+  g.innerHTML = '';
+
+  // edges
+  wfEdges.forEach((edge, idx) => {
+    const fromNode = wfNodes.find(n => n.id === edge.from);
+    const toNode = wfNodes.find(n => n.id === edge.to);
+    if (!fromNode || !toNode) return;
+    const fromDef = NODE_DEFS[fromNode.type];
+    const toDef = NODE_DEFS[toNode.type];
+    const fp = wfPortPos(fromNode, 'out', edge.fromPort, fromDef.ports.out);
+    const tp = wfPortPos(toNode, 'in', edge.toPort, toDef.ports.in);
+    const path = wfBezier(fp.x, fp.y, tp.x, tp.y);
+    const el = document.createElementNS(SVG_NS, 'path');
+    el.setAttribute('d', path);
+    el.setAttribute('class', 'wf-edge');
+    el.setAttribute('stroke', 'var(--fg2)');
+    el.setAttribute('marker-end', 'url(#wf-arrow)');
+    el.addEventListener('click', () => {
+      wfEdges.splice(idx, 1);
+      wfRender();
+    });
+    g.appendChild(el);
+  });
+
+  // nodes
+  wfNodes.forEach(node => {
+    const def = NODE_DEFS[node.type];
+    const ng = document.createElementNS(SVG_NS, 'g');
+    ng.setAttribute('class', 'wf-svg-node' + (wfSelectedNode === node.id ? ' selected' : ''));
+    ng.setAttribute('transform', `translate(${node.x},${node.y})`);
+
+    // body rect
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('class', 'node-body');
+    rect.setAttribute('width', NODE_W);
+    rect.setAttribute('height', NODE_H);
+    rect.setAttribute('fill', 'var(--card)');
+    rect.setAttribute('stroke', 'var(--border)');
+    ng.appendChild(rect);
+
+    // icon circle
+    const ic = document.createElementNS(SVG_NS, 'circle');
+    ic.setAttribute('cx', 26);
+    ic.setAttribute('cy', NODE_H / 2);
+    ic.setAttribute('r', 14);
+    ic.setAttribute('fill', def.bg);
+    ng.appendChild(ic);
+
+    const it = document.createElementNS(SVG_NS, 'text');
+    it.setAttribute('x', 26);
+    it.setAttribute('y', NODE_H / 2 + 4);
+    it.setAttribute('text-anchor', 'middle');
+    it.setAttribute('class', 'node-icon-text');
+    it.textContent = def.icon;
+    ng.appendChild(it);
+
+    // title
+    const tt = document.createElementNS(SVG_NS, 'text');
+    tt.setAttribute('x', 50);
+    tt.setAttribute('y', NODE_H / 2 - 4);
+    tt.setAttribute('class', 'node-title');
+    tt.setAttribute('fill', 'var(--fg)');
+    tt.textContent = node.name.length > 16 ? node.name.slice(0, 15) + '…' : node.name;
+    ng.appendChild(tt);
+
+    // subtitle (type)
+    const st = document.createElementNS(SVG_NS, 'text');
+    st.setAttribute('x', 50);
+    st.setAttribute('y', NODE_H / 2 + 12);
+    st.setAttribute('class', 'node-subtitle');
+    st.textContent = def.label;
+    ng.appendChild(st);
+
+    // input ports
+    for (let i = 0; i < def.ports.in; i++) {
+      const pp = wfLocalPortPos('in', i, def.ports.in);
+      const port = document.createElementNS(SVG_NS, 'circle');
+      port.setAttribute('cx', pp.x);
+      port.setAttribute('cy', pp.y);
+      port.setAttribute('r', 5);
+      port.setAttribute('fill', 'var(--bg)');
+      port.setAttribute('stroke', 'var(--accent)');
+      port.setAttribute('stroke-width', '2');
+      port.setAttribute('class', 'wf-port');
+      port.dataset.nodeId = node.id;
+      port.dataset.portType = 'in';
+      port.dataset.portIdx = i;
+      ng.appendChild(port);
+    }
+
+    // output ports
+    for (let i = 0; i < def.ports.out; i++) {
+      const pp = wfLocalPortPos('out', i, def.ports.out);
+      const port = document.createElementNS(SVG_NS, 'circle');
+      port.setAttribute('cx', pp.x);
+      port.setAttribute('cy', pp.y);
+      port.setAttribute('r', 5);
+      port.setAttribute('fill', 'var(--accent)');
+      port.setAttribute('stroke', 'var(--accent)');
+      port.setAttribute('stroke-width', '2');
+      port.setAttribute('class', 'wf-port');
+      port.dataset.nodeId = node.id;
+      port.dataset.portType = 'out';
+      port.dataset.portIdx = i;
+      // start connection on pointerdown
+      port.addEventListener('pointerdown', e => {
+        e.stopPropagation();
+        wfConnecting = { nodeId: node.id, portIdx: i };
+      });
+      ng.appendChild(port);
+    }
+
+    // interactions
+    ng.addEventListener('pointerdown', e => {
+      if (e.target.classList.contains('wf-port')) return;
+      e.stopPropagation();
+      wfSelectNode(node.id);
+      const rect2 = document.getElementById('wf-canvas-wrap').getBoundingClientRect();
+      const mx = (e.clientX - rect2.left - wfPan.x) / wfZoom;
+      const my = (e.clientY - rect2.top - wfPan.y) / wfZoom;
+      wfDragging = { node, ox: mx - node.x, oy: my - node.y };
+    });
+
+    g.appendChild(ng);
+  });
+
+  document.getElementById('wf-node-count').textContent = wfNodes.length + ' node' + (wfNodes.length !== 1 ? 's' : '');
+  wfUpdateMinimap();
+}
+
+function wfLocalPortPos(type, idx, total) {
+  const spacing = NODE_H / (total + 1);
+  const y = spacing * (idx + 1);
+  return { x: type === 'in' ? 0 : NODE_W, y };
+}
+
+function wfPortPos(node, type, idx, total) {
+  const local = wfLocalPortPos(type, idx, total);
+  return { x: node.x + local.x, y: node.y + local.y };
+}
+
+function wfBezier(x1, y1, x2, y2) {
+  const dx = Math.abs(x2 - x1) * 0.5;
+  return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+}
+
+function wfRenderTempEdge(mx, my) {
+  const g = document.getElementById('wf-canvas-g');
+  let tempEl = g.querySelector('.wf-edge-temp');
+  if (!wfConnecting) { if (tempEl) tempEl.remove(); return; }
+  const fromNode = wfNodes.find(n => n.id === wfConnecting.nodeId);
+  if (!fromNode) return;
+  const fromDef = NODE_DEFS[fromNode.type];
+  const fp = wfPortPos(fromNode, 'out', wfConnecting.portIdx, fromDef.ports.out);
+  const path = wfBezier(fp.x, fp.y, mx, my);
+  if (!tempEl) {
+    tempEl = document.createElementNS(SVG_NS, 'path');
+    tempEl.setAttribute('class', 'wf-edge-temp');
+    tempEl.setAttribute('stroke', 'var(--accent)');
+    g.appendChild(tempEl);
+  }
+  tempEl.setAttribute('d', path);
+}
+
+function wfSelectNode(id) {
+  wfSelectedNode = id;
+  wfRender();
+  const node = wfNodes.find(n => n.id === id);
+  if (node) {
+    const panel = document.getElementById('wf-detail');
+    panel.classList.add('open');
+    document.getElementById('wf-detail-title').textContent = node.name;
+    document.getElementById('wf-d-name').value = node.name;
+    document.getElementById('wf-d-type').value = NODE_DEFS[node.type]?.label || node.type;
+    document.getElementById('wf-d-provider').value = node.provider || '';
+    document.getElementById('wf-d-system').value = node.system || '';
+    document.getElementById('wf-d-config').value = node.config || '';
+  }
+}
+
+function wfDeselectAll() {
+  wfSelectedNode = null;
+  document.getElementById('wf-detail').classList.remove('open');
+  wfRender();
+}
+
+function wfUpdateNodeProp(prop, value) {
+  if (!wfSelectedNode) return;
+  const node = wfNodes.find(n => n.id === wfSelectedNode);
+  if (!node) return;
+  node[prop] = value;
+  if (prop === 'name') {
+    document.getElementById('wf-detail-title').textContent = value;
+    wfRender();
+  }
+}
+
+function wfDeleteSelected() {
+  if (!wfSelectedNode) return;
+  wfNodes = wfNodes.filter(n => n.id !== wfSelectedNode);
+  wfEdges = wfEdges.filter(e => e.from !== wfSelectedNode && e.to !== wfSelectedNode);
+  wfSelectedNode = null;
+  document.getElementById('wf-detail').classList.remove('open');
+  wfRender();
+}
+
+function wfClearCanvas() {
+  wfNodes = [];
+  wfEdges = [];
+  wfSelectedNode = null;
+  wfNextId = 1;
+  document.getElementById('wf-detail').classList.remove('open');
+  wfRender();
+}
+
+function loadTemplate(key) {
+  const tpl = WF_TEMPLATES[key];
+  if (!tpl) return;
+  wfClearCanvas();
+  tpl.nodes.forEach(n => {
+    wfAddNode(n.type, n.x, n.y, n.name, n.id);
+  });
+  // reassign wfNextId
+  const maxId = Math.max(...wfNodes.map(n => parseInt(n.id.replace('n', '')) || 0));
+  wfNextId = maxId + 1;
+  wfEdges = tpl.edges.map(e => ({ ...e }));
+  wfRender();
+  wfFitView();
+  document.getElementById('wf-template-select').value = key;
+  addLog('Loaded template: ' + tpl.name);
+}
+
+function wfZoomIn() {
+  wfZoom = Math.min(3, wfZoom + 0.15);
+  wfApplyTransform();
+  document.getElementById('wf-zoom-label').textContent = Math.round(wfZoom * 100) + '%';
+}
+
+function wfZoomOut() {
+  wfZoom = Math.max(0.15, wfZoom - 0.15);
+  wfApplyTransform();
+  document.getElementById('wf-zoom-label').textContent = Math.round(wfZoom * 100) + '%';
+}
+
+function wfFitView() {
+  if (wfNodes.length === 0) { wfPan = { x: 40, y: 40 }; wfZoom = 1; wfApplyTransform(); return; }
+  const wrap = document.getElementById('wf-canvas-wrap');
+  const ww = wrap.clientWidth;
+  const wh = wrap.clientHeight;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  wfNodes.forEach(n => {
+    minX = Math.min(minX, n.x);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + NODE_W);
+    maxY = Math.max(maxY, n.y + NODE_H);
+  });
+  const pw = maxX - minX + 80;
+  const ph = maxY - minY + 80;
+  wfZoom = Math.min(1.5, Math.min(ww / pw, wh / ph));
+  wfPan.x = (ww - pw * wfZoom) / 2 - minX * wfZoom + 40 * wfZoom;
+  wfPan.y = (wh - ph * wfZoom) / 2 - minY * wfZoom + 40 * wfZoom;
+  wfApplyTransform();
+  document.getElementById('wf-zoom-label').textContent = Math.round(wfZoom * 100) + '%';
+}
+
+function wfUpdateMinimap() {
+  const mmSvg = document.getElementById('wf-minimap-svg');
+  if (!mmSvg || wfNodes.length === 0) { if (mmSvg) mmSvg.innerHTML = ''; return; }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  wfNodes.forEach(n => {
+    minX = Math.min(minX, n.x);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + NODE_W);
+    maxY = Math.max(maxY, n.y + NODE_H);
+  });
+  const pad = 20;
+  const vw = maxX - minX + pad * 2;
+  const vh = maxY - minY + pad * 2;
+  mmSvg.setAttribute('viewBox', `${minX - pad} ${minY - pad} ${vw} ${vh}`);
+  let html = '';
+  wfEdges.forEach(edge => {
+    const fn = wfNodes.find(n => n.id === edge.from);
+    const tn = wfNodes.find(n => n.id === edge.to);
+    if (!fn || !tn) return;
+    const fx = fn.x + NODE_W, fy = fn.y + NODE_H / 2;
+    const tx = tn.x, ty = tn.y + NODE_H / 2;
+    html += `<line x1="${fx}" y1="${fy}" x2="${tx}" y2="${ty}" stroke="var(--fg2)" stroke-width="2" opacity="0.4"/>`;
+  });
+  wfNodes.forEach(node => {
+    const def = NODE_DEFS[node.type];
+    const sel = wfSelectedNode === node.id;
+    html += `<rect x="${node.x}" y="${node.y}" width="${NODE_W}" height="${NODE_H}" rx="6" fill="${def.bg}" opacity="${sel ? 0.9 : 0.5}"/>`;
+  });
+  mmSvg.innerHTML = html;
+}
+
+async function wfSaveWorkflow() {
+  const payload = {
+    name: 'Workflow ' + new Date().toLocaleTimeString(),
+    nodes: wfNodes.map(n => ({ id: n.id, type: n.type, x: n.x, y: n.y, name: n.name, provider: n.provider, system: n.system, config: n.config })),
+    edges: wfEdges,
+  };
+  try {
+    const r = await fetch('/api/workflows', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (data.ok) addLog('Workflow saved: ' + (data.id || ''), 'success');
+    else addLog('Save failed: ' + (data.error || ''), 'error');
+  } catch (e) {
+    addLog('Save error: ' + e.message, 'error');
+  }
+}
+
+async function wfRunWorkflow() {
+  if (wfNodes.length === 0) { addLog('No nodes in workflow', 'warn'); return; }
+  const payload = {
+    nodes: wfNodes.map(n => ({ id: n.id, type: n.type, name: n.name, provider: n.provider, system: n.system, config: n.config })),
+    edges: wfEdges,
+  };
+  document.getElementById('wf-run-btn').disabled = true;
+  addLog('Running workflow (' + wfNodes.length + ' nodes)...');
+  try {
+    const r = await fetch('/api/workflows/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (data.error) addLog('Workflow error: ' + data.error, 'error');
+    else addLog('Workflow complete: ' + (data.status || 'done'), 'success');
+  } catch (e) {
+    addLog('Run error: ' + e.message, 'error');
+  } finally {
+    document.getElementById('wf-run-btn').disabled = false;
+  }
+}
+
 // ---- init ----
 (function init() {
   try { if (localStorage.getItem('oma-theme') === 'light') document.body.classList.add('light'); } catch(e) {}
   fetchStatus().then(() => {
-    // if no providers connected, show connect view on first load
     if (connectedCount === 0) showView('connect');
   });
-  setInterval(fetchStatus, 5000);
-  addLog('OMA Dashboard ready');
+  setInterval(fetchStatus, 1500);
+  addLog('OMA Dashboard ready (RALPH loop enabled)');
 })();
 </script>
 </body>
 </html>"""
+
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Handle requests in separate threads for concurrent access."""
+    daemon_threads = True
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -898,11 +2056,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "in_cooldown": False,
                         "last_error": None,
                     }
+            # include RALPH phase status
+            if self.agent and hasattr(self.agent, 'ralph_status'):
+                status["ralph"] = self.agent.ralph_status()
+            else:
+                status["ralph"] = {"current_phase": "idle", "phase_events": [], "total_events": 0}
+
             self._send_json(status)
 
         elif self.path.startswith("/api/auth/verify"):
-            # Validate a stored token against the live API
-            # e.g. /api/auth/verify?provider=claude
             from urllib.parse import parse_qs
             params = parse_qs(urlparse(self.path).query)
             provider = params.get("provider", [""])[0]
@@ -924,8 +2086,28 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "auth_type": cred.auth_type,
             })
 
+        elif self.path == "/api/workflows":
+            workflows = getattr(DashboardHandler, '_workflows', {})
+            self._send_json({"workflows": list(workflows.values())})
+
+        elif self.path == "/api/workflows/templates":
+            tpl_list = []
+            # mirror template keys from frontend
+            names = {
+                "simple_agent": "Simple Agent",
+                "multi_agent": "Multi-Agent Pipeline",
+                "rag_basic": "RAG: Basic",
+                "rag_conversational": "RAG: Conversational",
+                "rag_multi_source": "RAG: Multi-Source",
+                "rag_agentic": "RAG: Agentic",
+                "ralph_loop": "RALPH Loop",
+                "map_reduce": "Map-Reduce",
+            }
+            for key, name in names.items():
+                tpl_list.append({"key": key, "name": name})
+            self._send_json({"templates": tpl_list})
+
         elif self.path == "/api/test/history":
-            # Return test run history
             import pathlib
             history_path = pathlib.Path(__file__).resolve().parent.parent.parent.parent / "tests" / ".history" / "runs.json"
             if history_path.exists():
@@ -948,7 +2130,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
 
         if parsed.path == "/api/auth/connect":
-            # Subscription-based connection: verify and store token
             body = self._read_body()
             provider = body.get("provider", "")
             token = body.get("token", "")
@@ -957,7 +2138,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "missing provider or token"}, 400)
                 return
 
-            # verify the token works
             ok, detail = self._verify_token(provider, token)
             if ok:
                 if self.auth_manager:
@@ -1023,6 +2203,90 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "attempts": result.attempts,
                     "tokens_used": result.tokens_used,
                     "result": result.artifacts.get("final", "")[:5000],
+                    "lessons": result.lessons[-20:],
+                    "strategy": result.strategy,
+                    "phase_history": result.phase_history[-20:],
+                })
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+
+        elif parsed.path == "/api/workflows":
+            body = self._read_body()
+            name = body.get("name", "Untitled")
+            nodes = body.get("nodes", [])
+            edges = body.get("edges", [])
+            if not hasattr(DashboardHandler, '_workflows'):
+                DashboardHandler._workflows = {}
+            import hashlib, time
+            wf_id = hashlib.md5(f"{name}{time.time()}".encode()).hexdigest()[:12]
+            DashboardHandler._workflows[wf_id] = {
+                "id": wf_id,
+                "name": name,
+                "nodes": nodes,
+                "edges": edges,
+                "created": time.time(),
+            }
+            self._send_json({"ok": True, "id": wf_id})
+
+        elif parsed.path == "/api/workflows/run":
+            body = self._read_body()
+            nodes = body.get("nodes", [])
+            edges = body.get("edges", [])
+            if not nodes:
+                self._send_json({"error": "no nodes in workflow"}, 400)
+                return
+            if not self.agent:
+                self._rebuild_agent()
+            if not self.agent:
+                self._send_json({"error": "no providers configured"}, 400)
+                return
+            try:
+                # topological sort for execution order
+                adj = {n["id"]: [] for n in nodes}
+                in_deg = {n["id"]: 0 for n in nodes}
+                for e in edges:
+                    adj[e["from"]].append(e["to"])
+                    in_deg[e["to"]] = in_deg.get(e["to"], 0) + 1
+                queue = [nid for nid, d in in_deg.items() if d == 0]
+                order = []
+                while queue:
+                    nid = queue.pop(0)
+                    order.append(nid)
+                    for child in adj.get(nid, []):
+                        in_deg[child] -= 1
+                        if in_deg[child] == 0:
+                            queue.append(child)
+                node_map = {n["id"]: n for n in nodes}
+                results = {}
+                for nid in order:
+                    node = node_map[nid]
+                    ntype = node.get("type", "")
+                    if ntype in ("start", "end", "merge"):
+                        results[nid] = {"status": "pass-through"}
+                        continue
+                    # gather parent outputs
+                    parent_outputs = []
+                    for e in edges:
+                        if e["to"] == nid and e["from"] in results:
+                            parent_outputs.append(results[e["from"]])
+                    # execute agent/ralph nodes via the harness
+                    if ntype in ("agent", "sub_agent", "ralph"):
+                        objective = node.get("system") or node.get("name", "task")
+                        ctx = "; ".join(str(p.get("output", "")) for p in parent_outputs if p.get("output"))
+                        if ctx:
+                            objective = f"{objective} -- context: {ctx}"
+                        result = self.agent.run(objective=objective)
+                        results[nid] = {
+                            "status": result.status.value,
+                            "confidence": result.confidence,
+                            "output": result.artifacts.get("final", "")[:2000],
+                        }
+                    else:
+                        results[nid] = {"status": "skipped", "type": ntype}
+                self._send_json({
+                    "status": "done",
+                    "node_results": results,
+                    "execution_order": order,
                 })
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
@@ -1049,7 +2313,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         try:
             if provider == "claude":
-                # test: fetch organizations
                 req = urllib.request.Request(
                     "https://claude.ai/api/organizations",
                     headers={
@@ -1069,7 +2332,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     return False, "No organizations found -- token may be invalid"
 
             elif provider == "chatgpt":
-                # test: fetch session info
                 req = urllib.request.Request(
                     "https://chatgpt.com/api/auth/session",
                     headers={
@@ -1085,7 +2347,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     return True, f"Account: {email}" if email else "Session valid"
 
             elif provider == "gemini":
-                # test: load main page and check for session marker
                 req = urllib.request.Request(
                     "https://gemini.google.com/",
                     headers={
@@ -1099,7 +2360,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     import re
                     if re.search(r'"SNlM0e"', html):
                         return True, "Google session valid"
-                    # page loaded but no session marker -- might still work
                     return True, "Cookie accepted (could not fully verify)"
 
             elif provider == "deepseek":
@@ -1116,7 +2376,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     return False, f"DeepSeek returned status {resp.status}"
 
             else:
-                # for other providers, just accept the token
                 return True, "Token stored"
 
         except urllib.error.HTTPError as e:
@@ -1149,7 +2408,6 @@ def run_web(host="127.0.0.1", port=8384, open_browser=True):
     auth = AuthManager()
     DashboardHandler.auth_manager = auth
 
-    # try to build agent from stored credentials first, then env vars
     try:
         from oma.agent import OMA
         DashboardHandler.agent = OMA.from_credentials(auth)
@@ -1160,7 +2418,7 @@ def run_web(host="127.0.0.1", port=8384, open_browser=True):
         except Exception:
             DashboardHandler.agent = None
 
-    server = HTTPServer((host, port), DashboardHandler)
+    server = ThreadedHTTPServer((host, port), DashboardHandler)
     url = f"http://{host}:{port}"
     print(f"OMA Dashboard: {url}")
 

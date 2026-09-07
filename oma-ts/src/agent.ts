@@ -2,7 +2,7 @@
  * OMA - Open Multi Agent harness.
  *
  * Wires together:
- *   - Core loop (invariant retry with time/token awareness)
+ *   - RALPH loop (Reason, Act, Learn, Plan, Handoff)
  *   - Provider registry (Claude, Gemini, ChatGPT, DeepSeek, GLM, Kimi)
  *   - Criteria engine (define what "done" means)
  *   - Sanitizer (strip provider fingerprints)
@@ -20,7 +20,17 @@
 import { ContextOptimizer, PersistentMemory, WorkingMemory } from './automation/memory.js';
 import { ensureCriteria } from './core/criteria.js';
 import { nearOutageHandler } from './core/edge.js';
-import { CoreLoop, type LoopConfig, DEFAULT_LOOP_CONFIG, TaskState } from './core/loop.js';
+import {
+  RalphLoop,
+  type LoopConfig,
+  DEFAULT_LOOP_CONFIG,
+  TaskState,
+  type Strategy,
+  type Reasoning,
+  type Lesson,
+  type PlanDecision,
+  type PhaseEvent,
+} from './core/loop.js';
 import { Sanitizer } from './core/sanitize.js';
 import { ProviderRegistry } from './providers/registry.js';
 import { providerResponseOk, providerResponseTokensTotal } from './providers/base.js';
@@ -33,6 +43,9 @@ export class OMA {
   working: WorkingMemory;
   persistent: PersistentMemory;
   optimizer: ContextOptimizer;
+  // ralph phase tracking for GUI
+  private _currentPhase = 'idle';
+  private _phaseEvents: Array<Record<string, unknown>> = [];
 
   constructor(opts: {
     registry: ProviderRegistry;
@@ -86,20 +99,25 @@ export class OMA {
   }
 
   /**
-   * Run the full agent loop.
+   * Run the full RALPH agent loop.
    *
    * @param objective - what to accomplish
    * @param criteria - optional pre-defined success criteria
    * @param system - system prompt override
    * @param resumeFrom - task_id to resume from (loads persistent memory)
+   * @param onPhase - optional callback for phase transitions (GUI use)
    */
   async run(opts: {
     objective: string;
     criteria?: Record<string, unknown>;
     system?: string;
     resumeFrom?: string;
+    onPhase?: (event: PhaseEvent) => void;
   }): Promise<TaskState> {
-    const { objective, criteria, system, resumeFrom } = opts;
+    const { objective, criteria, system, resumeFrom, onPhase } = opts;
+
+    this._currentPhase = 'idle';
+    this._phaseEvents = [];
 
     // load previous state if resuming
     let prevContext: Record<string, unknown> | null = null;
@@ -128,13 +146,23 @@ export class OMA {
         history: [],
       });
 
-      // add the task as user message
+      // add the task as user message, enriched with strategy context
+      let strategyCtx = '';
+      if (state.strategy) {
+        const notes = (state.strategy as Record<string, unknown>).approach_notes as string[] | undefined;
+        if (notes?.length) {
+          strategyCtx = '\n\nLessons from previous attempts:\n' +
+            notes.slice(-3).map(n => `- ${n}`).join('\n');
+        }
+      }
+
       messages.push({
         role: 'user',
         content: `Complete this task: ${state.objective}\n\n` +
           `Criteria: ${JSON.stringify(state.criteria)}\n\n` +
           `Attempt ${state.attempts}. ` +
-          `Previous confidence: ${state.confidence.toFixed(2)}`,
+          `Previous confidence: ${state.confidence.toFixed(2)}` +
+          strategyCtx,
       });
 
       const response = await provider.complete(
@@ -168,6 +196,109 @@ export class OMA {
       return [response.text, tokensTotal, confidence];
     };
 
+    const reasonFn = (state: TaskState, strategy: Strategy): Reasoning => {
+      // gather provider health info
+      const health = this.registry.statusReport();
+      const healthyProviders = Object.entries(health)
+        .filter(([, h]) => !(h as Record<string, unknown>).in_cooldown)
+        .map(([name]) => name);
+
+      const reasoning: Reasoning = {
+        analysis: '',
+        approach: '',
+        focus_areas: [],
+        provider_preference: '',
+      };
+
+      if (state.attempts === 1) {
+        reasoning.analysis = `First attempt: ${state.objective}`;
+        reasoning.approach = 'direct';
+        const best = this.registry.bestAvailable();
+        if (best) reasoning.provider_preference = best;
+      } else if (strategy.consecutive_failures > 2) {
+        reasoning.analysis =
+          `Consecutive failures: ${strategy.consecutive_failures}. Switching strategy.`;
+        reasoning.approach = 'alternative';
+        if (healthyProviders.length > 0) {
+          reasoning.provider_preference = healthyProviders[healthyProviders.length - 1];
+        }
+      } else if (strategy.best_confidence > 0.5) {
+        reasoning.analysis =
+          `Making progress (best: ${strategy.best_confidence.toFixed(2)}). Refining approach.`;
+        reasoning.approach = 'refinement';
+      } else {
+        reasoning.analysis = `Attempt ${state.attempts}, exploring.`;
+        reasoning.approach = 'iterative';
+      }
+
+      if (Object.keys(state.criteria).length > 0) {
+        reasoning.focus_areas = Object.keys(state.criteria).slice(0, 5);
+      }
+
+      return reasoning;
+    };
+
+    const planFn = (state: TaskState, strategy: Strategy, lesson: Lesson): PlanDecision => {
+      const decision: PlanDecision = {
+        action: 'continue',
+        reason: '',
+        reorder_providers: [],
+        adjust_temperature: null,
+        refine_prompt: '',
+        escalate: false,
+      };
+
+      // check: threshold met?
+      if (strategy.best_confidence >= state.confidence_threshold) {
+        decision.action = 'done';
+        decision.reason =
+          `Confidence ${strategy.best_confidence.toFixed(2)} >= threshold ${state.confidence_threshold}`;
+        return decision;
+      }
+
+      // track failures
+      if (lesson.succeeded) {
+        strategy.consecutive_failures = 0;
+      } else {
+        strategy.consecutive_failures++;
+      }
+
+      // too many failures
+      if (strategy.consecutive_failures >= 3) {
+        decision.action = 'park';
+        decision.reason = 'consecutive_failures';
+        return decision;
+      }
+
+      // budget check
+      const remainingPct = state.remainingTokens() / Math.max(state.tokens_budget, 1);
+      if (remainingPct < 0.15) {
+        decision.action = 'park';
+        decision.reason = 'low_budget';
+        return decision;
+      }
+
+      // adaptive reordering using registry health
+      const newChain = this.registry.fallbackChain();
+      if (
+        newChain.length > 0 &&
+        JSON.stringify(newChain) !== JSON.stringify(strategy.provider_order)
+      ) {
+        decision.reorder_providers = newChain;
+      }
+
+      // approach notes
+      if (lesson.what_worked) {
+        strategy.approach_notes.push(lesson.what_worked);
+      } else if (lesson.what_failed) {
+        strategy.approach_notes.push(lesson.what_failed);
+      }
+
+      decision.action = 'continue';
+      decision.reason = 'iterating';
+      return decision;
+    };
+
     const handoffFn = async (state: TaskState): Promise<void> => {
       const note = nearOutageHandler(
         state,
@@ -178,11 +309,31 @@ export class OMA {
       this.persistent.mergeWorking(state.task_id, this.working);
     };
 
-    const loop = new CoreLoop({
+    const phaseHandler = (event: PhaseEvent): void => {
+      this._currentPhase = event.phase;
+      this._phaseEvents.push({
+        phase: event.phase,
+        iteration: event.iteration,
+        timestamp: event.timestamp,
+        data: event.data,
+      });
+      if (onPhase) {
+        try {
+          onPhase(event);
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    const loop = new RalphLoop({
       config: this.config,
       solve_fn: solveFn,
       sanitize_fn: (text: string) => this.sanitizer.run(text),
       handoff_fn: handoffFn,
+      reason_fn: reasonFn,
+      plan_fn: planFn,
+      on_phase: phaseHandler,
     });
 
     // always ensure criteria are present - defaults apply if none given
@@ -195,22 +346,30 @@ export class OMA {
   private _estimateConfidence(output: string, criteria: Record<string, unknown>): number {
     if (!output) return 0;
 
-    let score = 0.35; // baseline for non-empty output
-
-    // length heuristic: very short answers are usually incomplete
+    let score = 0.2;
+    if (output.length > 50) score += 0.1;
     if (output.length > 200) score += 0.1;
-    if (output.length > 1000) score += 0.1;
+    if (output.length > 500) score += 0.1;
 
     // check if output addresses criteria keywords
     if (criteria && Object.keys(criteria).length > 0) {
       const outputLower = output.toLowerCase();
       const keys = Object.keys(criteria);
       const matched = keys.filter(key => outputLower.includes(key.toLowerCase())).length;
-      score += 0.35 * (matched / keys.length);
+      score += 0.45 * (matched / keys.length);
     }
 
     // cap at 0.95 (never auto-confirm at 1.0 without eval)
     return Math.min(score, 0.95);
+  }
+
+  /** Current RALPH phase and recent events (for GUI polling). */
+  ralphStatus(): Record<string, unknown> {
+    return {
+      current_phase: this._currentPhase,
+      phase_events: this._phaseEvents.slice(-20),
+      total_events: this._phaseEvents.length,
+    };
   }
 
   /** Current state of the agent. */
@@ -218,6 +377,7 @@ export class OMA {
     return {
       providers: this.registry.statusReport(),
       working_memory_entries: this.working._store.size,
+      ralph: this.ralphStatus(),
       config: {
         token_budget: this.config.token_budget,
         wall_limit_s: this.config.wall_limit_s,
