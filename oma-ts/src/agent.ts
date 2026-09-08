@@ -236,7 +236,7 @@ export class OMA {
       // use router to pick best provider
       const available = this.registry.available();
       if (available.length > 0) {
-        const selected = this.router.select(available, health, taskType, modality);
+        const selected = this.router.select(available, health as Record<string, Record<string, number>>, taskType, modality);
         if (Array.isArray(selected)) {
           reasoning.provider_preference = selected[0] ?? '';
         } else if (selected) {
@@ -427,7 +427,7 @@ export class OMA {
       // record in router too
       this.router.recordFailure({
         providerId: providerName,
-        errorCode: response.error_code ?? 0,
+        errorCode: (response as unknown as Record<string, unknown>).error_code as number ?? 0,
       });
       throw new Error(`${providerName}: ${response.error}`);
     }

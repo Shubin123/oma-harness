@@ -49,6 +49,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 oma-ts/dist/
+oma-ts/oma-bin/
+
+# Build cache
+.build_cache/
+
+# SEA build artifacts
+sea-prep.blob
+sea-config.json
 
 # macOS
 .DS_Store

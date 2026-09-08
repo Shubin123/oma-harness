@@ -1,6 +1,6 @@
 {
   "name": "oma-harness",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Open Multi Agent - a harness for running tasks across multiple LLM subscriptions",
   "type": "module",
   "main": "dist/index.js",
@@ -9,12 +9,14 @@
   },
   "scripts": {
     "build": "tsc",
+    "bundle": "esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/oma-bundle.mjs --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\"",
+    "build:binary": "./build_node.sh",
     "start": "node dist/cli.js",
     "dev": "tsx src/cli.ts",
     "gui": "node dist/cli.js gui",
     "web": "node dist/cli.js web",
     "test": "node --test dist/**/*.test.js",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist oma-bin"
   },
   "keywords": ["llm", "multi-agent", "automation", "ai", "harness"],
   "author": "shuba",
@@ -22,9 +24,10 @@
   "devDependencies": {
     "typescript": "^5.4.0",
     "tsx": "^4.10.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.21.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }

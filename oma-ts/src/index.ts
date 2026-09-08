@@ -11,6 +11,8 @@ export { CriteriaSet, Criterion, CriterionType, ensureCriteria } from './core/cr
 export type { CriterionInit, CriterionScore } from './core/criteria.js';
 export { Sanitizer, sanitize } from './core/sanitize.js';
 export { HandoffNote, nearOutageHandler, outageRecoveryPrompt } from './core/edge.js';
+export { Router } from './core/router.js';
+export { OmniRouteBridge } from './core/omniroute_bridge.js';
 export { ProviderRegistry, ProviderHealth } from './providers/registry.js';
 export { AuthManager, CredentialStore, AuthStatus, PROVIDER_AUTH } from './providers/auth.js';
 export type { Credential } from './providers/auth.js';

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "oma-harness"
-version = "0.1.0"
+version = "0.2.0"
 description = "Open Multi Agent - a harness for running tasks across multiple LLM subscriptions"
 readme = "README.md"
 license = "MIT"
@@ -47,9 +47,9 @@ oma = "oma.cli:main"
 oma-gui = "oma.gui.app:main"
 
 [project.urls]
-Homepage = "https://github.com/shuba/oma-harness"
-Repository = "https://github.com/shuba/oma-harness"
-Issues = "https://github.com/shuba/oma-harness/issues"
+Homepage = "https://github.com/Shubin123/oma-harness"
+Repository = "https://github.com/Shubin123/oma-harness"
+Issues = "https://github.com/Shubin123/oma-harness/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/oma"]
