@@ -4,6 +4,8 @@ OMA -- Open Multi Agent harness.
 Wires together:
   - RALPH loop (Reason, Act, Learn, Plan, Handoff)
   - Provider registry (Claude, Gemini, ChatGPT, DeepSeek, GLM, Kimi)
+  - Advanced routing engine (10 strategies, circuit breaker, cost/quota)
+  - OmniRoute bridge (352+ providers when gateway is running)
   - Criteria engine (define what "done" means)
   - Sanitizer (strip provider fingerprints)
   - Automation layers (pixel, page, memory)
@@ -12,9 +14,13 @@ Wires together:
 Usage:
     from oma import OMA
 
+    # standalone mode (embedded router)
     agent = OMA.from_env()
     result = agent.run("build a web scraper for HN front page")
-    print(result.artifacts.get("final"))
+
+    # with OmniRoute gateway (352+ providers, full routing)
+    agent = OMA.from_env(omniroute=True)
+    result = agent.run("build a web scraper for HN front page")
 """
 
 from oma.automation.memory import ContextOptimizer, PersistentMemory, WorkingMemory
@@ -31,12 +37,27 @@ from oma.core.loop import (
     PhaseEvent,
 )
 from oma.core.sanitize import Sanitizer
+from oma.core.router import (
+    Router,
+    RoutingStrategy,
+    Modality,
+    BudgetRule,
+    ScoringWeights,
+)
+from oma.core.omniroute_bridge import OmniRouteBridge, OmniRouteConfig
 from oma.providers.registry import ProviderRegistry
 
 
 class OMA:
     """
     Top-level agent orchestrator.
+
+    Supports two routing modes:
+      1. Embedded router (default) -- 10 strategies, circuit breaker,
+         cost/quota tracking. Works standalone with no external services.
+      2. OmniRoute gateway -- routes through a running OmniRoute instance
+         for 352+ providers, advanced compression, modality bridging.
+         Falls back to embedded router if gateway is unreachable.
     """
 
     def __init__(
@@ -45,6 +66,11 @@ class OMA:
         config: LoopConfig = None,
         sanitizer: Sanitizer = None,
         memory_dir: str = ".oma_memory",
+        routing_strategy: RoutingStrategy = RoutingStrategy.AUTO,
+        scoring_weights: ScoringWeights = None,
+        budgets: dict = None,
+        omniroute: bool = False,
+        omniroute_config: OmniRouteConfig = None,
     ):
         self.registry = registry
         self.config = config or LoopConfig(
@@ -54,18 +80,49 @@ class OMA:
         self.working = WorkingMemory()
         self.persistent = PersistentMemory(base_dir=memory_dir)
         self.optimizer = ContextOptimizer(token_budget=self.config.token_budget)
+
+        # embedded router
+        budget_rules = None
+        if budgets:
+            budget_rules = {
+                k: BudgetRule(**v) if isinstance(v, dict) else v
+                for k, v in budgets.items()
+            }
+        self.router = Router(
+            strategy=routing_strategy,
+            weights=scoring_weights,
+            budgets=budget_rules,
+        )
+
+        # OmniRoute bridge (optional)
+        self.omniroute_bridge = None
+        self._omniroute_enabled = omniroute
+        if omniroute:
+            cfg = omniroute_config or OmniRouteConfig()
+            self.omniroute_bridge = OmniRouteBridge(cfg)
+
         # ralph phase tracking for GUI
         self._current_phase = "idle"
         self._phase_events = []
 
     @classmethod
-    def from_env(cls, **kwargs) -> "OMA":
+    def from_env(
+        cls,
+        omniroute: bool = False,
+        routing_strategy: RoutingStrategy = RoutingStrategy.AUTO,
+        **kwargs,
+    ) -> "OMA":
         """Create OMA from environment variables."""
         registry = ProviderRegistry.from_env()
-        return cls(registry=registry, **kwargs)
+        return cls(
+            registry=registry,
+            omniroute=omniroute,
+            routing_strategy=routing_strategy,
+            **kwargs,
+        )
 
     @classmethod
-    def load(cls, **kwargs) -> "OMA":
+    def load(cls, omniroute: bool = False, **kwargs) -> "OMA":
         """
         Create OMA using all available configuration sources:
         1. Stored encrypted credentials (~/.oma/credentials.json)
@@ -77,10 +134,10 @@ class OMA:
         registry = ProviderRegistry.from_credentials(auth, include_env=True)
         if not registry._providers:
             registry = ProviderRegistry.from_env(include_standard_env=True)
-        return cls(registry=registry, **kwargs)
+        return cls(registry=registry, omniroute=omniroute, **kwargs)
 
     @classmethod
-    def from_credentials(cls, auth_manager, **kwargs) -> "OMA":
+    def from_credentials(cls, auth_manager, omniroute: bool = False, **kwargs) -> "OMA":
         """
         Create OMA from stored credentials (subscription or API key).
 
@@ -90,7 +147,7 @@ class OMA:
         registry = ProviderRegistry.from_credentials(auth_manager)
         if not registry.available() and not registry._providers:
             registry = ProviderRegistry.from_env()
-        return cls(registry=registry, **kwargs)
+        return cls(registry=registry, omniroute=omniroute, **kwargs)
 
     def run(
         self,
@@ -99,6 +156,8 @@ class OMA:
         system: str = "",
         resume_from: str = None,
         on_phase: callable = None,
+        task_type: str = "general",
+        modality: Modality = Modality.TEXT,
     ) -> TaskState:
         """
         Run the full RALPH agent loop.
@@ -109,9 +168,15 @@ class OMA:
             system: system prompt override
             resume_from: task_id to resume from (loads persistent memory)
             on_phase: optional callback for phase transitions (GUI use)
+            task_type: hint for router scoring (general/coding/creative/rag)
+            modality: input modality (text/vision/audio)
         """
         self._current_phase = "idle"
         self._phase_events = []
+
+        # probe OmniRoute availability if enabled
+        if self.omniroute_bridge:
+            self.omniroute_bridge.check_availability()
 
         # load previous state if resuming
         prev_context = None
@@ -127,68 +192,19 @@ class OMA:
                 )
 
         def solve_fn(state: TaskState, provider_name: str):
-            provider = self.registry.get(provider_name)
-            if not provider:
-                raise RuntimeError(f"provider {provider_name} not registered")
-
-            # build optimized context
-            sys_prompt, messages = self.optimizer.build_context(
-                system=system or "You are an agent completing a task. Be direct and efficient.",
-                task_state=state.snapshot(),
-                working=self.working,
-                persistent=prev_context,
-                history=[],
+            # dual-mode dispatch: OmniRoute gateway vs embedded
+            if self.omniroute_bridge and self.omniroute_bridge.available:
+                return self._solve_via_omniroute(
+                    state, provider_name, system, prev_context
+                )
+            return self._solve_direct(
+                state, provider_name, system, prev_context, task_type
             )
-
-            # add the task as user message, enriched with strategy context
-            strategy_ctx = ""
-            if state.strategy:
-                notes = state.strategy.get("approach_notes", [])
-                if notes:
-                    strategy_ctx = f"\n\nLessons from previous attempts:\n" + "\n".join(
-                        f"- {n}" for n in notes[-3:]
-                    )
-
-            messages.append({
-                "role": "user",
-                "content": f"Complete this task: {state.objective}\n\n"
-                           f"Criteria: {state.criteria}\n\n"
-                           f"Attempt {state.attempts}. "
-                           f"Previous confidence: {state.confidence:.2f}"
-                           f"{strategy_ctx}",
-            })
-
-            response = provider.complete(
-                messages=messages,
-                system=sys_prompt,
-                temperature=0.3,
-            )
-
-            if not response.ok:
-                ec = response.error_class
-                self.registry.record_failure(provider_name, response.error, ec)
-                raise RuntimeError(f"{provider_name}: {response.error}")
-
-            self.registry.record_success(
-                provider_name, response.tokens_total, response.latency_ms
-            )
-
-            # store in working memory
-            self.working.put(
-                f"attempt_{state.attempts}",
-                response.text[:500],
-                tags=["attempt", "result"],
-                source=provider_name,
-            )
-
-            confidence = self._estimate_confidence(response.text, state.criteria)
-
-            return response.text, response.tokens_total, confidence
 
         def reason_fn(state: TaskState, strategy: Strategy) -> Reasoning:
             """
             Analyze state and determine approach for this iteration.
-            Uses working memory and provider health to inform reasoning.
+            Uses router scoring and provider health to inform reasoning.
             """
             reasoning = Reasoning()
 
@@ -199,20 +215,31 @@ class OMA:
                 if not h.get("in_cooldown", False)
             ]
 
+            # use router to pick best provider
+            available = self.registry.available()
+            if available:
+                selected = self.router.select(
+                    available=available,
+                    health_stats=health,
+                    task_type=task_type,
+                    modality=modality,
+                )
+                if isinstance(selected, list):
+                    # fusion mode: prefer first
+                    reasoning.provider_preference = selected[0] if selected else ""
+                elif selected:
+                    reasoning.provider_preference = selected
+
             if state.attempts == 1:
                 reasoning.analysis = f"First attempt: {state.objective}"
                 reasoning.approach = "direct"
-                # prefer provider with best success rate
-                best = self.registry.best_available()
-                if best:
-                    reasoning.provider_preference = best
             elif strategy.consecutive_failures > 2:
                 reasoning.analysis = (
                     f"Consecutive failures: {strategy.consecutive_failures}. "
                     f"Switching strategy."
                 )
                 reasoning.approach = "alternative"
-                # try least-used provider
+                # router already accounts for breaker state, but try tail
                 if healthy_providers:
                     reasoning.provider_preference = healthy_providers[-1]
             elif strategy.best_confidence > 0.5:
@@ -237,7 +264,7 @@ class OMA:
         ) -> PlanDecision:
             """
             Decide next action based on accumulated lessons.
-            Uses provider registry health to inform provider ordering.
+            Uses router status to inform provider ordering.
             """
             decision = PlanDecision()
 
@@ -324,6 +351,162 @@ class OMA:
 
         return loop.run(objective=objective, initial_criteria=validated_criteria)
 
+    def _solve_direct(
+        self,
+        state: TaskState,
+        provider_name: str,
+        system: str,
+        prev_context: dict,
+        task_type: str,
+    ):
+        """Execute via embedded provider registry with router tracking."""
+        provider = self.registry.get(provider_name)
+        if not provider:
+            raise RuntimeError(f"provider {provider_name} not registered")
+
+        # build optimized context
+        sys_prompt, messages = self.optimizer.build_context(
+            system=system or "You are an agent completing a task. Be direct and efficient.",
+            task_state=state.snapshot(),
+            working=self.working,
+            persistent=prev_context,
+            history=[],
+        )
+
+        # add the task as user message, enriched with strategy context
+        strategy_ctx = ""
+        if state.strategy:
+            notes = state.strategy.get("approach_notes", [])
+            if notes:
+                strategy_ctx = "\n\nLessons from previous attempts:\n" + "\n".join(
+                    f"- {n}" for n in notes[-3:]
+                )
+
+        messages.append({
+            "role": "user",
+            "content": f"Complete this task: {state.objective}\n\n"
+                       f"Criteria: {state.criteria}\n\n"
+                       f"Attempt {state.attempts}. "
+                       f"Previous confidence: {state.confidence:.2f}"
+                       f"{strategy_ctx}",
+        })
+
+        response = provider.complete(
+            messages=messages,
+            system=sys_prompt,
+            temperature=0.3,
+        )
+
+        if not response.ok:
+            ec = response.error_class
+            self.registry.record_failure(provider_name, response.error, ec)
+            # record failure in router too
+            error_code = getattr(response, "error_code", None) or 0
+            self.router.record_failure(
+                provider_name,
+                error_code=error_code,
+            )
+            raise RuntimeError(f"{provider_name}: {response.error}")
+
+        self.registry.record_success(
+            provider_name, response.tokens_total, response.latency_ms
+        )
+
+        # track in router
+        tokens_in = getattr(response, "tokens_in", 0) or 0
+        tokens_out = getattr(response, "tokens_out", 0) or 0
+        self.router.record_success(
+            provider_name,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            latency_s=(response.latency_ms or 0) / 1000.0,
+            task_type=task_type,
+        )
+
+        # store in working memory
+        self.working.put(
+            f"attempt_{state.attempts}",
+            response.text[:500],
+            tags=["attempt", "result"],
+            source=provider_name,
+        )
+
+        confidence = self._estimate_confidence(response.text, state.criteria)
+
+        return response.text, response.tokens_total, confidence
+
+    def _solve_via_omniroute(
+        self,
+        state: TaskState,
+        provider_name: str,
+        system: str,
+        prev_context: dict,
+    ):
+        """Execute via OmniRoute gateway for full 352+ provider routing."""
+        bridge = self.omniroute_bridge
+
+        # build messages
+        msgs = []
+        if system:
+            msgs.append({"role": "system", "content": system})
+
+        strategy_ctx = ""
+        if state.strategy:
+            notes = state.strategy.get("approach_notes", [])
+            if notes:
+                strategy_ctx = "\n\nLessons from previous attempts:\n" + "\n".join(
+                    f"- {n}" for n in notes[-3:]
+                )
+
+        msgs.append({
+            "role": "user",
+            "content": f"Complete this task: {state.objective}\n\n"
+                       f"Criteria: {state.criteria}\n\n"
+                       f"Attempt {state.attempts}. "
+                       f"Previous confidence: {state.confidence:.2f}"
+                       f"{strategy_ctx}",
+        })
+
+        # resolve model: prefer auto-routing
+        model = bridge.resolve_model(provider_name, prefer_auto=True)
+
+        resp = bridge.chat_completion(
+            messages=msgs,
+            model=model,
+            temperature=0.3,
+        )
+
+        if not resp.ok:
+            error_code = resp.error_code or 0
+            self.router.record_failure(provider_name, error_code=error_code)
+            # fallback to direct if OmniRoute fails
+            if self.registry.get(provider_name):
+                return self._solve_direct(
+                    state, provider_name, system, prev_context, "general"
+                )
+            raise RuntimeError(f"OmniRoute: {resp.error}")
+
+        # record in router
+        self.router.record_success(
+            resp.provider or provider_name,
+            tokens_in=resp.tokens_in,
+            tokens_out=resp.tokens_out,
+            latency_s=resp.latency_ms / 1000.0,
+        )
+
+        # store in working memory
+        self.working.put(
+            f"attempt_{state.attempts}",
+            resp.text[:500],
+            tags=["attempt", "result", "omniroute"],
+            source=resp.provider or provider_name,
+        )
+
+        confidence = self._estimate_confidence(resp.text, state.criteria)
+        tokens_total = resp.tokens_total
+
+        return resp.text, tokens_total, confidence
+
     def _estimate_confidence(self, output: str, criteria: dict) -> float:
         """
         Heuristic confidence estimation.
@@ -358,16 +541,29 @@ class OMA:
             "total_events": len(self._phase_events),
         }
 
+    def router_status(self) -> dict:
+        """Router, circuit breaker, and cost status for GUI dashboard."""
+        result = self.router.status()
+        if self.omniroute_bridge:
+            result["omniroute"] = self.omniroute_bridge.status()
+        return result
+
     def status(self) -> dict:
         """Current state of the agent."""
-        return {
+        st = {
             "providers": self.registry.status_report(),
             "working_memory_entries": len(self.working._store),
             "ralph": self.ralph_status(),
+            "router": self.router_status(),
             "config": {
                 "token_budget": self.config.token_budget,
                 "wall_limit_s": self.config.wall_limit_s,
                 "confidence_threshold": self.config.confidence_threshold,
                 "provider_chain": self.config.provider_chain,
+                "routing_strategy": self.router.strategy.value,
+                "omniroute_enabled": self._omniroute_enabled,
             },
         }
+        if self.omniroute_bridge:
+            st["omniroute_available"] = self.omniroute_bridge.available
+        return st

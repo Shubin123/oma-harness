@@ -441,6 +441,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         <button class="nav-tab active" onclick="showView('task')" id="nav-task">Task</button>
         <button class="nav-tab" onclick="showView('workflows')" id="nav-workflows">Workflows</button>
         <button class="nav-tab" onclick="showView('connect')" id="nav-connect">Connect</button>
+        <button class="nav-tab" onclick="showView('routing')" id="nav-routing">Routing</button>
       </div>
       <span id="conn-status" class="badge badge-gray">0 providers</span>
       <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">&#9681;</button>
@@ -780,6 +781,91 @@ DASHBOARD_HTML = r"""<!doctype html>
         </div>
       </div>
 
+      <!-- Routing View -->
+      <div id="view-routing" hidden style="max-width:none">
+        <div class="card">
+          <div class="card-header">
+            <h2>Routing Engine</h2>
+            <span id="routing-mode-badge" class="badge badge-gray">embedded</span>
+          </div>
+          <div class="card-body">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px">
+              <div>
+                <label style="font-size:12px; color:var(--fg2)">Strategy</label>
+                <select id="routing-strategy" style="width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg); font-size:13px">
+                  <option value="auto">Auto (multi-factor scoring)</option>
+                  <option value="priority">Priority (first available)</option>
+                  <option value="weighted">Weighted random</option>
+                  <option value="round_robin">Round robin</option>
+                  <option value="p2c">Power-of-two choices</option>
+                  <option value="least_used">Least used</option>
+                  <option value="cost_optimized">Cost optimized</option>
+                  <option value="lkgp">LKGP (last known good)</option>
+                  <option value="fusion">Fusion (parallel)</option>
+                  <option value="pipeline">Pipeline (multi-stage)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:12px; color:var(--fg2)">OmniRoute Gateway</label>
+                <div style="display:flex; align-items:center; gap:8px; padding:6px 0">
+                  <span id="omniroute-status-dot" style="width:10px; height:10px; border-radius:50%; background:#666; display:inline-block"></span>
+                  <span id="omniroute-status-text" style="font-size:13px; color:var(--fg2)">Not configured</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Circuit Breakers</h2>
+          </div>
+          <div class="card-body">
+            <div id="breaker-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px">
+              <div style="color:var(--fg2); font-size:13px; padding:16px; text-align:center">
+                No providers active yet
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+          <div class="card">
+            <div class="card-header">
+              <h2>Cost Tracking</h2>
+            </div>
+            <div class="card-body">
+              <div id="cost-table-area" style="font-size:13px">
+                <table style="width:100%; border-collapse:collapse">
+                  <thead>
+                    <tr style="border-bottom:1px solid var(--border); text-align:left">
+                      <th style="padding:6px 8px; font-weight:500">Provider</th>
+                      <th style="padding:6px 8px; font-weight:500">Requests</th>
+                      <th style="padding:6px 8px; font-weight:500">Tokens</th>
+                      <th style="padding:6px 8px; font-weight:500">Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cost-table-body">
+                    <tr><td colspan="4" style="padding:12px; text-align:center; color:var(--fg2)">No data</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2>LKGP State</h2>
+            </div>
+            <div class="card-body">
+              <div id="lkgp-list" style="font-size:13px; color:var(--fg2)">
+                No routing history yet
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Task View -->
       <div id="view-task">
         <div class="card">
@@ -908,9 +994,11 @@ function showView(view) {
   document.getElementById('view-task').hidden = (view !== 'task');
   document.getElementById('view-connect').hidden = (view !== 'connect');
   document.getElementById('view-workflows').hidden = (view !== 'workflows');
+  document.getElementById('view-routing').hidden = (view !== 'routing');
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('nav-' + view).classList.add('active');
   if (view === 'workflows') wfInit();
+  if (view === 'routing') refreshRouting();
 }
 
 // ---- logging ----
@@ -1982,6 +2070,123 @@ async function wfRunWorkflow() {
   }
 }
 
+// ---- routing dashboard ----
+const BREAKER_COLORS = {
+  closed: '#22c55e',
+  degraded: '#f59e0b',
+  open: '#ef4444',
+  half_open: '#3b82f6',
+};
+
+function refreshRouting() {
+  fetch('/api/status').then(r => r.json()).then(data => {
+    const router = data.router || {};
+    const providers = router.providers || {};
+    const lkgp = router.lkgp || {};
+    const omniroute = router.omniroute || null;
+
+    // strategy badge
+    const badge = document.getElementById('routing-mode-badge');
+    if (omniroute && omniroute.available) {
+      badge.textContent = 'OmniRoute';
+      badge.className = 'badge badge-green';
+    } else {
+      badge.textContent = router.strategy || 'embedded';
+      badge.className = 'badge badge-blue';
+    }
+
+    // strategy selector
+    const sel = document.getElementById('routing-strategy');
+    if (router.strategy && sel.value !== router.strategy) {
+      sel.value = router.strategy;
+    }
+
+    // OmniRoute status
+    const dot = document.getElementById('omniroute-status-dot');
+    const txt = document.getElementById('omniroute-status-text');
+    if (omniroute) {
+      if (omniroute.available) {
+        dot.style.background = '#22c55e';
+        const mc = omniroute.model_count || 0;
+        txt.textContent = `Connected (${mc} models)`;
+        txt.style.color = 'var(--fg)';
+      } else {
+        dot.style.background = '#ef4444';
+        txt.textContent = 'Unreachable';
+        txt.style.color = 'var(--fg2)';
+      }
+    } else {
+      dot.style.background = '#666';
+      txt.textContent = 'Not configured';
+      txt.style.color = 'var(--fg2)';
+    }
+
+    // circuit breakers
+    const grid = document.getElementById('breaker-grid');
+    const pids = Object.keys(providers);
+    if (pids.length === 0) {
+      grid.innerHTML = '<div style="color:var(--fg2); font-size:13px; padding:16px; text-align:center">No providers active yet</div>';
+    } else {
+      grid.innerHTML = pids.map(pid => {
+        const p = providers[pid];
+        const b = p.breaker || {};
+        const state = b.state || 'closed';
+        const color = BREAKER_COLORS[state] || '#666';
+        const failPct = b.failure_threshold ? Math.round((b.failure_count || 0) / b.failure_threshold * 100) : 0;
+        return `<div style="border:1px solid var(--border); border-radius:8px; padding:12px; background:var(--bg2)">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+            <span style="font-weight:500; font-size:13px">${escHtml(pid)}</span>
+            <span style="background:${color}; color:#fff; font-size:11px; padding:2px 8px; border-radius:10px">${state}</span>
+          </div>
+          <div style="font-size:11px; color:var(--fg2); line-height:1.8">
+            <div>Failures: ${b.failure_count || 0} / ${b.failure_threshold || 8}</div>
+            <div style="background:var(--border); border-radius:3px; height:4px; margin:4px 0">
+              <div style="background:${color}; height:100%; border-radius:3px; width:${Math.min(failPct, 100)}%; transition:width 0.3s"></div>
+            </div>
+            <div>Successes: ${b.success_count || 0}</div>
+            <div>Quota: ${p.quota_available ? 'OK' : 'Exhausted'} (${Math.round((p.quota_remaining_pct || 1) * 100)}%)</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // cost table
+    const tbody = document.getElementById('cost-table-body');
+    if (pids.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="padding:12px; text-align:center; color:var(--fg2)">No data</td></tr>';
+    } else {
+      tbody.innerHTML = pids.map(pid => {
+        const p = providers[pid];
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:6px 8px">${escHtml(pid)}</td>
+          <td style="padding:6px 8px">${p.requests || 0}</td>
+          <td style="padding:6px 8px">${(p.total_tokens || 0).toLocaleString()}</td>
+          <td style="padding:6px 8px">$${(p.total_cost || 0).toFixed(4)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // LKGP state
+    const lkgpEl = document.getElementById('lkgp-list');
+    const lkgpEntries = Object.entries(lkgp);
+    if (lkgpEntries.length === 0) {
+      lkgpEl.innerHTML = 'No routing history yet';
+    } else {
+      lkgpEl.innerHTML = lkgpEntries.map(([task, provider]) =>
+        `<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border)">
+          <span style="color:var(--fg)">${escHtml(task)}</span>
+          <span style="color:var(--accent)">${escHtml(String(provider))}</span>
+        </div>`
+      ).join('');
+    }
+  }).catch(() => {});
+}
+
+// auto-refresh routing when visible
+setInterval(() => {
+  if (!document.getElementById('view-routing').hidden) refreshRouting();
+}, 2000);
+
 // ---- init ----
 (function init() {
   try { if (localStorage.getItem('oma-theme') === 'light') document.body.classList.add('light'); } catch(e) {}
@@ -2061,6 +2266,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 status["ralph"] = self.agent.ralph_status()
             else:
                 status["ralph"] = {"current_phase": "idle", "phase_events": [], "total_events": 0}
+
+            # include router + OmniRoute status
+            if self.agent and hasattr(self.agent, 'router_status'):
+                status["router"] = self.agent.router_status()
+            else:
+                status["router"] = {"strategy": "auto", "providers": {}, "lkgp": {}}
 
             self._send_json(status)
 
