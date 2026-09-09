@@ -24338,5 +24338,2755 @@
         "duration": 0.0
       }
     ]
+  },
+  {
+    "timestamp": "2026-09-09 08:20:18",
+    "epoch": 1788967218,
+    "duration_s": 7.14,
+    "exit_code": 0,
+    "total": 9,
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0,
+    "token_validated": false,
+    "providers_connected": [],
+    "live_test": false,
+    "tests": [
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_every_catalog_entry_reaches_the_page",
+        "outcome": "passed",
+        "duration": 0.032
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_entries_carry_what_the_view_renders",
+        "outcome": "passed",
+        "duration": 0.002
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_local_providers_need_no_credential",
+        "outcome": "passed",
+        "duration": 0.014
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_a_stored_key_shows_as_configured",
+        "outcome": "passed",
+        "duration": 0.243
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_a_verified_key_is_stored",
+        "outcome": "passed",
+        "duration": 0.276
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_a_refused_key_is_not_stored",
+        "outcome": "passed",
+        "duration": 0.013
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_an_uncheckable_key_is_stored_but_flagged",
+        "outcome": "passed",
+        "duration": 0.247
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_missing_fields_are_rejected",
+        "outcome": "passed",
+        "duration": 0.015
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestDashboardMarkup::test_the_providers_view_is_present",
+        "outcome": "passed",
+        "duration": 0.002
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-09-09 08:20:53",
+    "epoch": 1788967253,
+    "duration_s": 26.99,
+    "exit_code": 0,
+    "total": 266,
+    "passed": 243,
+    "failed": 0,
+    "skipped": 23,
+    "token_validated": false,
+    "providers_connected": [],
+    "live_test": false,
+    "tests": [
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_empty_token",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_strip_whitespace_and_quotes",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_strip_bearer_prefix",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_claude_session_cookie_prefix",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_claude_cookie_with_attributes",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_claude_cookie_among_multiple",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_chatgpt_session_cookie",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_gemini_session_cookie",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_claude_api_key",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_claude_sessional_key",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_claude_oauth_token",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_chatgpt_api_key",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_chatgpt_sessional_token",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_gemini_api_key",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_gemini_sessional_cookie",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_deepseek_and_other_providers",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCredentialStoreSecurity::test_store_creates_owner_only_permissions",
+        "outcome": "passed",
+        "duration": 0.418
+      },
+      {
+        "name": "tests/test_auth.py::TestCredentialStoreSecurity::test_stored_content_is_encrypted",
+        "outcome": "passed",
+        "duration": 0.589
+      },
+      {
+        "name": "tests/test_auth.py::TestCredentialStoreSecurity::test_expired_credentials_not_returned",
+        "outcome": "passed",
+        "duration": 0.367
+      },
+      {
+        "name": "tests/test_auth.py::TestAuthManager::test_store_credential_auto_detects_session",
+        "outcome": "passed",
+        "duration": 0.377
+      },
+      {
+        "name": "tests/test_auth.py::TestAuthManager::test_store_credential_auto_detects_api_key",
+        "outcome": "passed",
+        "duration": 0.368
+      },
+      {
+        "name": "tests/test_auth.py::TestAuthManager::test_status_reports_all_stored_providers",
+        "outcome": "passed",
+        "duration": 0.557
+      },
+      {
+        "name": "tests/test_auth.py::TestStorageInfoAndFlushing::test_storage_info_structure",
+        "outcome": "passed",
+        "duration": 0.415
+      },
+      {
+        "name": "tests/test_auth.py::TestStorageInfoAndFlushing::test_store_flush_securely_wipes_and_unlinks",
+        "outcome": "passed",
+        "duration": 0.387
+      },
+      {
+        "name": "tests/test_auth.py::TestStorageInfoAndFlushing::test_store_flush_cleans_lingering_tmp_files",
+        "outcome": "passed",
+        "duration": 0.176
+      },
+      {
+        "name": "tests/test_auth.py::TestStorageInfoAndFlushing::test_auth_manager_flush_notifies_and_cleans_memory",
+        "outcome": "passed",
+        "duration": 0.58
+      },
+      {
+        "name": "tests/test_auth.py::TestStorageInfoAndFlushing::test_persistent_memory_permissions_and_flush",
+        "outcome": "passed",
+        "duration": 0.203
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_every_entry_is_keyed_by_its_own_id",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_endpoints_are_absolute_urls",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_free_providers_say_where_to_sign_up",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_key_providers_declare_an_environment_variable",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_local_providers_stay_on_localhost",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_placeholders_are_declared_as_extra_fields",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_entries_are_ordered_cheapest_first",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_transport_table_covers_the_whole_catalog",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_the_original_six_providers_are_still_present",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_anthropic_and_gemini_keep_their_own_dialects",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_a_live_model_is_kept",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_a_retired_model_falls_back_to_a_live_candidate",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_an_unlisted_provider_catalog_leaves_the_choice_alone",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_gemini_model_names_are_unprefixed",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_openai_style_catalogs_parse",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_a_junk_payload_yields_nothing",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_unknown_providers_are_assumed_to_cost_money",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_cheapest_tier_wins_when_it_has_capacity",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_free_only_refuses_to_reach_for_a_paid_provider",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_a_ceiling_excludes_everything_above_it",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_blocked_providers_are_never_offered",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_prefer_paid_inverts_the_order",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_off_leaves_ordering_to_the_router",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierLedger::test_an_escalation_is_recorded_when_a_request_costs_more",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierLedger::test_dropping_back_to_free_is_not_an_escalation",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierLedger::test_free_share_reflects_what_was_never_billed",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierLedger::test_an_empty_ledger_counts_as_entirely_free",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestRouterTierIntegration::test_the_router_picks_the_cheapest_available_provider",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestRouterTierIntegration::test_the_router_escalates_when_the_free_tier_is_exhausted",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestRouterTierIntegration::test_a_free_only_router_selects_nothing_rather_than_spending",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestRouterTierIntegration::test_tier_status_reports_usage_and_escalations",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_boolean_true",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_boolean_false",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_numeric_clamp",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_threshold_met",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_threshold_partial",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_contains_found",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_contains_missing",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_regex_match",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_regex_no_match",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_custom",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_error_returns_zero",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriteriaSet::test_weighted_evaluation",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriteriaSet::test_required_failure_zeros_overall",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriteriaSet::test_missing_values",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriteriaSet::test_empty_criteria",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriteriaSet::test_to_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestPresets::test_code_quality_has_required",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestPresets::test_research_has_sources",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestPresets::test_automation_has_target",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_every_catalog_entry_reaches_the_page",
+        "outcome": "passed",
+        "duration": 0.002
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_entries_carry_what_the_view_renders",
+        "outcome": "passed",
+        "duration": 0.001
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_local_providers_need_no_credential",
+        "outcome": "passed",
+        "duration": 0.001
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_a_stored_key_shows_as_configured",
+        "outcome": "passed",
+        "duration": 0.202
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_a_verified_key_is_stored",
+        "outcome": "passed",
+        "duration": 0.272
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_a_refused_key_is_not_stored",
+        "outcome": "passed",
+        "duration": 0.001
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_an_uncheckable_key_is_stored_but_flagged",
+        "outcome": "passed",
+        "duration": 0.273
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_missing_fields_are_rejected",
+        "outcome": "passed",
+        "duration": 0.001
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestDashboardMarkup::test_the_providers_view_is_present",
+        "outcome": "passed",
+        "duration": 0.002
+      },
+      {
+        "name": "tests/test_e2e.py::TestFullLifecycleE2E::test_end_to_end_pipeline",
+        "outcome": "passed",
+        "duration": 0.431
+      },
+      {
+        "name": "tests/test_e2e.py::TestDashboardE2EPipeline::test_dashboard_api_run_pipeline",
+        "outcome": "passed",
+        "duration": 0.998
+      },
+      {
+        "name": "tests/test_e2e.py::TestResumptionE2E::test_session_handoff_and_resume",
+        "outcome": "passed",
+        "duration": 0.275
+      },
+      {
+        "name": "tests/test_edge.py::TestHandoffNote::test_to_prompt_format",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_edge.py::TestHandoffNote::test_to_prompt_with_critical_context",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_edge.py::TestHandoffNote::test_to_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_edge.py::TestNearOutageHandler::test_produces_handoff",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_edge.py::TestOutageRecoveryPrompt::test_includes_fork_and_checklist",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_functional.py::TestAgentWorkflows::test_task_completes_when_criteria_met",
+        "outcome": "passed",
+        "duration": 0.059
+      },
+      {
+        "name": "tests/test_functional.py::TestAgentWorkflows::test_task_retries_and_completes_on_second_attempt",
+        "outcome": "passed",
+        "duration": 0.054
+      },
+      {
+        "name": "tests/test_functional.py::TestFallbackChainExecution::test_primary_fails_secondary_succeeds",
+        "outcome": "passed",
+        "duration": 0.052
+      },
+      {
+        "name": "tests/test_functional.py::TestTaskParkingAndResumption::test_park_and_resume_flow",
+        "outcome": "passed",
+        "duration": 0.21
+      },
+      {
+        "name": "tests/test_functional.py::TestCLIFunctional::test_cli_auth_lifecycle",
+        "outcome": "passed",
+        "duration": 1.908
+      },
+      {
+        "name": "tests/test_functional.py::TestCLIFunctional::test_cli_auth_info_and_flush_flow",
+        "outcome": "passed",
+        "duration": 0.883
+      },
+      {
+        "name": "tests/test_functional.py::TestCLIFunctional::test_cli_memory_list_and_flush",
+        "outcome": "passed",
+        "duration": 0.312
+      },
+      {
+        "name": "tests/test_integration.py::TestDashboardServing::test_index_returns_html",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestDashboardServing::test_index_has_provider_cards",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestDashboardServing::test_404_on_unknown_path",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestStatusAPI::test_status_returns_json",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestStatusAPI::test_status_has_auth_section",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestStatusAPI::test_status_lists_all_providers",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestStatusAPI::test_status_provider_has_status_field",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthAPI::test_connect_rejects_empty_token",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthAPI::test_connect_rejects_missing_provider",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthAPI::test_apikey_rejects_empty",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthAPI::test_logout_rejects_missing_provider",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestRunAPI::test_run_rejects_empty_objective",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestRunAPI::test_run_rejects_no_body",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestRunAPI::test_stop_returns_ok",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestProviderConnection::test_claude_is_connected",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestProviderConnection::test_connected_provider_count",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestTokenValidation::test_claude_token_is_valid",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestTokenValidation::test_verify_rejects_unknown_provider",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestTokenValidation::test_verify_rejects_missing_param",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestTokenValidation::test_verify_reflects_disconnected_provider",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestTokenValidation::test_health_metrics_present_for_connected",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestHistoryAPI::test_history_endpoint_returns_json",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestLiveExecution::test_minimal_task_completes",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestAgentConstruction::test_from_env_with_no_keys",
+        "outcome": "passed",
+        "duration": 0.053
+      },
+      {
+        "name": "tests/test_integration.py::TestAgentConstruction::test_status_report_shape",
+        "outcome": "passed",
+        "duration": 0.05
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthManagerUnit::test_store_and_retrieve_session",
+        "outcome": "passed",
+        "duration": 0.384
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthManagerUnit::test_store_and_retrieve_api_key",
+        "outcome": "passed",
+        "duration": 0.373
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthManagerUnit::test_logout_removes_credential",
+        "outcome": "passed",
+        "duration": 0.585
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthManagerUnit::test_status_reflects_connections",
+        "outcome": "passed",
+        "duration": 0.575
+      },
+      {
+        "name": "tests/test_integration.py::TestSubscriptionProviderUnit::test_claude_provider_creation",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestSubscriptionProviderUnit::test_chatgpt_provider_creation",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestSubscriptionProviderUnit::test_gemini_provider_creation",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestSubscriptionProviderUnit::test_unknown_provider_returns_none",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestRegistryFromCredentials::test_builds_registry_from_stored_creds",
+        "outcome": "passed",
+        "duration": 0.377
+      },
+      {
+        "name": "tests/test_integration.py::TestRegistryFromCredentials::test_subscription_and_apikey_both_register",
+        "outcome": "passed",
+        "duration": 0.575
+      },
+      {
+        "name": "tests/test_integration.py::TestConversationNaming::test_claude_conversation_body_has_name_field",
+        "outcome": "passed",
+        "duration": 0.001
+      },
+      {
+        "name": "tests/test_integration.py::TestConversationNaming::test_conversation_name_is_not_empty_for_tests",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestDefaultCriteria::test_ensure_criteria_with_none",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestDefaultCriteria::test_ensure_criteria_with_empty_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestDefaultCriteria::test_ensure_criteria_preserves_user_criteria",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestSanitizerCompleteness::test_strips_all_known_attributions",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestTaskState::test_snapshot_is_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestTaskState::test_remaining_tokens",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestTaskState::test_near_outage",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestTaskState::test_ralph_fields_initialised",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestTaskState::test_snapshot_includes_ralph_fields",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_alias_is_ralph",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_immediate_success",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_max_attempts_park",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_token_near_outage",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_provider_fallback",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_sanitize_applied",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestRalphPhases::test_phases_emitted_in_order",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestRalphPhases::test_multiple_iterations_phase_order",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestRalphPhases::test_phase_history_recorded",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestRalphPhases::test_final_phase_is_idle",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestStrategy::test_strategy_populated_after_run",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestStrategy::test_best_confidence_tracked",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestStrategy::test_consecutive_failures_cause_park",
+        "outcome": "passed",
+        "duration": 0.01
+      },
+      {
+        "name": "tests/test_loop.py::TestStrategy::test_provider_reordering_on_success",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestLessons::test_lessons_recorded",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestLessons::test_lesson_succeeds_on_result",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestLessons::test_lesson_fails_on_error",
+        "outcome": "passed",
+        "duration": 0.002
+      },
+      {
+        "name": "tests/test_loop.py::TestCustomCallbacks::test_custom_reason_fn",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCustomCallbacks::test_custom_plan_fn",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCustomCallbacks::test_custom_plan_park",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCustomCallbacks::test_failing_reason_fn_uses_default",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCustomCallbacks::test_failing_plan_fn_uses_default",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestPhaseEvents::test_on_phase_receives_events",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestPhaseEvents::test_on_phase_has_iteration",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestPhaseEvents::test_on_phase_crash_ignored",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestHandoff::test_handoff_context_includes_strategy",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestHandoff::test_artifacts_final_set_on_done",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestHandoff::test_low_budget_parks",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestDataclasses::test_reasoning_defaults",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestDataclasses::test_lesson_defaults",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestDataclasses::test_plan_decision_defaults",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestDataclasses::test_strategy_to_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestDataclasses::test_ralph_phase_values",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_put_get",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_get_missing",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_search_by_tag",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_lru_eviction",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_ttl_expiry",
+        "outcome": "passed",
+        "duration": 0.011
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_summarize",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_to_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestPersistentMemory::test_save_load",
+        "outcome": "passed",
+        "duration": 0.11
+      },
+      {
+        "name": "tests/test_memory.py::TestPersistentMemory::test_load_missing",
+        "outcome": "passed",
+        "duration": 0.056
+      },
+      {
+        "name": "tests/test_memory.py::TestPersistentMemory::test_append_handoff",
+        "outcome": "passed",
+        "duration": 0.167
+      },
+      {
+        "name": "tests/test_memory.py::TestPersistentMemory::test_merge_working",
+        "outcome": "passed",
+        "duration": 0.113
+      },
+      {
+        "name": "tests/test_memory.py::TestContextOptimizer::test_builds_context",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestContextOptimizer::test_respects_budget",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestMachineIdentity::test_machine_id_is_stable_and_non_empty",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestMachineIdentity::test_current_user_is_reported",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestOwnerOnlyPaths::test_private_dir_is_owner_only",
+        "outcome": "passed",
+        "duration": 0.08
+      },
+      {
+        "name": "tests/test_platform.py::TestOwnerOnlyPaths::test_restrict_to_owner_locks_down_a_shared_file",
+        "outcome": "passed",
+        "duration": 0.134
+      },
+      {
+        "name": "tests/test_platform.py::TestOwnerOnlyPaths::test_restrict_to_owner_reports_missing_paths",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestOwnerOnlyPaths::test_description_matches_the_documented_expectation",
+        "outcome": "passed",
+        "duration": 0.102
+      },
+      {
+        "name": "tests/test_platform.py::TestPixelAutomationDispatch::test_delegate_takes_priority_over_native_commands",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestPixelAutomationDispatch::test_unknown_platform_fails_loudly[capture-args0]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestPixelAutomationDispatch::test_unknown_platform_fails_loudly[click-args1]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestPixelAutomationDispatch::test_unknown_platform_fails_loudly[type_text-args2]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestPixelAutomationDispatch::test_unknown_platform_fails_loudly[key-args3]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_png_encoding_round_trips_dimensions_and_pixels",
+        "outcome": "passed",
+        "duration": 0.002
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_named_combos_parse_without_a_keyboard_layout[enter-expected0]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_named_combos_parse_without_a_keyboard_layout[ctrl+shift+f5-expected1]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_named_combos_parse_without_a_keyboard_layout[alt+tab-expected2]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_unparseable_combos_are_rejected[]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_unparseable_combos_are_rejected[ctrl+nosuchkey]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_unparseable_combos_are_rejected[hyper+c]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_virtual_screen_has_a_positive_size",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_capture_writes_a_png_of_the_requested_region",
+        "outcome": "passed",
+        "duration": 0.005
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderResponse::test_ok_when_no_error",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderResponse::test_not_ok_with_error",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderHealth::test_success_rate",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderHealth::test_cooldown_on_capacity",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderHealth::test_avg_latency",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderRegistry::test_register_and_get",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderRegistry::test_available_excludes_cooldown",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderRegistry::test_fallback_chain_ordered",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderRegistry::test_status_report",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderConfigs::test_all_configs_present",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderConfigs::test_configs_have_required_keys",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderConfigs::test_claude_body_format",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderConfigs::test_openai_body_format",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderConfigs::test_gemini_body_format",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestCredentialStorePermissions::test_new_store_is_owner_only",
+        "outcome": "passed",
+        "duration": 0.43
+      },
+      {
+        "name": "tests/test_providers.py::TestCredentialStorePermissions::test_tightens_a_legacy_world_readable_store",
+        "outcome": "passed",
+        "duration": 0.749
+      },
+      {
+        "name": "tests/test_providers.py::TestCredentialStorePermissions::test_save_leaves_no_temp_file_behind",
+        "outcome": "passed",
+        "duration": 0.382
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_claude_attribution",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_generated_with_claude",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_chatgpt_attribution",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_gemini_attribution",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_deepseek_attribution",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_preserves_normal_text",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_as_ai_model",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestReplaceEmDashes::test_clause_break",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestReplaceEmDashes::test_unicode_em_dash",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestReplaceEmDashes::test_bullet_style",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestReplaceEmDashes::test_preserves_single_hyphens",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStraightenQuotes::test_curly_singles",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStraightenQuotes::test_curly_doubles",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripFiller::test_happy_to",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripFiller::test_certainly",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripFiller::test_great_question",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestCollapseWhitespace::test_multiple_blank_lines",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestCollapseWhitespace::test_trailing_spaces",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestSanitizerPipeline::test_full_pipeline",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestSanitizerPipeline::test_idempotent",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestSanitizerPipeline::test_custom_pass",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[claude]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[gemini]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[chatgpt]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[deepseek]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[glm]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[kimi]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_claude_subscription_provider_instantiates",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_chatgpt_subscription_provider_instantiates",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_gemini_subscription_provider_instantiates",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestSecuritySmoke::test_credential_store_encryption_cycle",
+        "outcome": "passed",
+        "duration": 0.841
+      },
+      {
+        "name": "tests/test_smoke.py::TestDashboardSmoke::test_dashboard_server_startup_and_endpoints",
+        "outcome": "passed",
+        "duration": 0.763
+      },
+      {
+        "name": "tests/test_smoke.py::TestCLISmoke::test_cli_help_smoke",
+        "outcome": "passed",
+        "duration": 0.256
+      },
+      {
+        "name": "tests/test_smoke.py::TestCLISmoke::test_cli_auth_help_smoke",
+        "outcome": "passed",
+        "duration": 0.245
+      },
+      {
+        "name": "tests/test_smoke.py::TestCLISmoke::test_cli_status_smoke",
+        "outcome": "passed",
+        "duration": 0.459
+      },
+      {
+        "name": "tests/test_smoke.py::TestHealthTrackingSmoke::test_health_metrics_smoke",
+        "outcome": "passed",
+        "duration": 0.0
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-09-09 08:22:15",
+    "epoch": 1788967335,
+    "duration_s": 26.46,
+    "exit_code": 0,
+    "total": 266,
+    "passed": 243,
+    "failed": 0,
+    "skipped": 23,
+    "token_validated": false,
+    "providers_connected": [],
+    "live_test": false,
+    "tests": [
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_empty_token",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_strip_whitespace_and_quotes",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_strip_bearer_prefix",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_claude_session_cookie_prefix",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_claude_cookie_with_attributes",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_claude_cookie_among_multiple",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_chatgpt_session_cookie",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCleanToken::test_gemini_session_cookie",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_claude_api_key",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_claude_sessional_key",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_claude_oauth_token",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_chatgpt_api_key",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_chatgpt_sessional_token",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_gemini_api_key",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_gemini_sessional_cookie",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestDetectAuthType::test_deepseek_and_other_providers",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_auth.py::TestCredentialStoreSecurity::test_store_creates_owner_only_permissions",
+        "outcome": "passed",
+        "duration": 0.412
+      },
+      {
+        "name": "tests/test_auth.py::TestCredentialStoreSecurity::test_stored_content_is_encrypted",
+        "outcome": "passed",
+        "duration": 0.584
+      },
+      {
+        "name": "tests/test_auth.py::TestCredentialStoreSecurity::test_expired_credentials_not_returned",
+        "outcome": "passed",
+        "duration": 0.377
+      },
+      {
+        "name": "tests/test_auth.py::TestAuthManager::test_store_credential_auto_detects_session",
+        "outcome": "passed",
+        "duration": 0.367
+      },
+      {
+        "name": "tests/test_auth.py::TestAuthManager::test_store_credential_auto_detects_api_key",
+        "outcome": "passed",
+        "duration": 0.364
+      },
+      {
+        "name": "tests/test_auth.py::TestAuthManager::test_status_reports_all_stored_providers",
+        "outcome": "passed",
+        "duration": 0.555
+      },
+      {
+        "name": "tests/test_auth.py::TestStorageInfoAndFlushing::test_storage_info_structure",
+        "outcome": "passed",
+        "duration": 0.402
+      },
+      {
+        "name": "tests/test_auth.py::TestStorageInfoAndFlushing::test_store_flush_securely_wipes_and_unlinks",
+        "outcome": "passed",
+        "duration": 0.368
+      },
+      {
+        "name": "tests/test_auth.py::TestStorageInfoAndFlushing::test_store_flush_cleans_lingering_tmp_files",
+        "outcome": "passed",
+        "duration": 0.176
+      },
+      {
+        "name": "tests/test_auth.py::TestStorageInfoAndFlushing::test_auth_manager_flush_notifies_and_cleans_memory",
+        "outcome": "passed",
+        "duration": 0.549
+      },
+      {
+        "name": "tests/test_auth.py::TestStorageInfoAndFlushing::test_persistent_memory_permissions_and_flush",
+        "outcome": "passed",
+        "duration": 0.196
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_every_entry_is_keyed_by_its_own_id",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_endpoints_are_absolute_urls",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_free_providers_say_where_to_sign_up",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_key_providers_declare_an_environment_variable",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_local_providers_stay_on_localhost",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_placeholders_are_declared_as_extra_fields",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_entries_are_ordered_cheapest_first",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_transport_table_covers_the_whole_catalog",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_the_original_six_providers_are_still_present",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestCatalogIntegrity::test_anthropic_and_gemini_keep_their_own_dialects",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_a_live_model_is_kept",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_a_retired_model_falls_back_to_a_live_candidate",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_an_unlisted_provider_catalog_leaves_the_choice_alone",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_gemini_model_names_are_unprefixed",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_openai_style_catalogs_parse",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestModelResolution::test_a_junk_payload_yields_nothing",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_unknown_providers_are_assumed_to_cost_money",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_cheapest_tier_wins_when_it_has_capacity",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_free_only_refuses_to_reach_for_a_paid_provider",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_a_ceiling_excludes_everything_above_it",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_blocked_providers_are_never_offered",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_prefer_paid_inverts_the_order",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierPolicy::test_off_leaves_ordering_to_the_router",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierLedger::test_an_escalation_is_recorded_when_a_request_costs_more",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierLedger::test_dropping_back_to_free_is_not_an_escalation",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierLedger::test_free_share_reflects_what_was_never_billed",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestTierLedger::test_an_empty_ledger_counts_as_entirely_free",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestRouterTierIntegration::test_the_router_picks_the_cheapest_available_provider",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestRouterTierIntegration::test_the_router_escalates_when_the_free_tier_is_exhausted",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestRouterTierIntegration::test_a_free_only_router_selects_nothing_rather_than_spending",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_catalog_tiers.py::TestRouterTierIntegration::test_tier_status_reports_usage_and_escalations",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_boolean_true",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_boolean_false",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_numeric_clamp",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_threshold_met",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_threshold_partial",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_contains_found",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_contains_missing",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_regex_match",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_regex_no_match",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_custom",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriterion::test_error_returns_zero",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriteriaSet::test_weighted_evaluation",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriteriaSet::test_required_failure_zeros_overall",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriteriaSet::test_missing_values",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriteriaSet::test_empty_criteria",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestCriteriaSet::test_to_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestPresets::test_code_quality_has_required",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestPresets::test_research_has_sources",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_criteria.py::TestPresets::test_automation_has_target",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_every_catalog_entry_reaches_the_page",
+        "outcome": "passed",
+        "duration": 0.002
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_entries_carry_what_the_view_renders",
+        "outcome": "passed",
+        "duration": 0.002
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_local_providers_need_no_credential",
+        "outcome": "passed",
+        "duration": 0.001
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestCatalogEndpoint::test_a_stored_key_shows_as_configured",
+        "outcome": "passed",
+        "duration": 0.2
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_a_verified_key_is_stored",
+        "outcome": "passed",
+        "duration": 0.249
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_a_refused_key_is_not_stored",
+        "outcome": "passed",
+        "duration": 0.001
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_an_uncheckable_key_is_stored_but_flagged",
+        "outcome": "passed",
+        "duration": 0.248
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestKeyStorage::test_missing_fields_are_rejected",
+        "outcome": "passed",
+        "duration": 0.014
+      },
+      {
+        "name": "tests/test_dashboard_providers.py::TestDashboardMarkup::test_the_providers_view_is_present",
+        "outcome": "passed",
+        "duration": 0.017
+      },
+      {
+        "name": "tests/test_e2e.py::TestFullLifecycleE2E::test_end_to_end_pipeline",
+        "outcome": "passed",
+        "duration": 0.422
+      },
+      {
+        "name": "tests/test_e2e.py::TestDashboardE2EPipeline::test_dashboard_api_run_pipeline",
+        "outcome": "passed",
+        "duration": 0.996
+      },
+      {
+        "name": "tests/test_e2e.py::TestResumptionE2E::test_session_handoff_and_resume",
+        "outcome": "passed",
+        "duration": 0.257
+      },
+      {
+        "name": "tests/test_edge.py::TestHandoffNote::test_to_prompt_format",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_edge.py::TestHandoffNote::test_to_prompt_with_critical_context",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_edge.py::TestHandoffNote::test_to_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_edge.py::TestNearOutageHandler::test_produces_handoff",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_edge.py::TestOutageRecoveryPrompt::test_includes_fork_and_checklist",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_functional.py::TestAgentWorkflows::test_task_completes_when_criteria_met",
+        "outcome": "passed",
+        "duration": 0.063
+      },
+      {
+        "name": "tests/test_functional.py::TestAgentWorkflows::test_task_retries_and_completes_on_second_attempt",
+        "outcome": "passed",
+        "duration": 0.049
+      },
+      {
+        "name": "tests/test_functional.py::TestFallbackChainExecution::test_primary_fails_secondary_succeeds",
+        "outcome": "passed",
+        "duration": 0.05
+      },
+      {
+        "name": "tests/test_functional.py::TestTaskParkingAndResumption::test_park_and_resume_flow",
+        "outcome": "passed",
+        "duration": 0.204
+      },
+      {
+        "name": "tests/test_functional.py::TestCLIFunctional::test_cli_auth_lifecycle",
+        "outcome": "passed",
+        "duration": 1.819
+      },
+      {
+        "name": "tests/test_functional.py::TestCLIFunctional::test_cli_auth_info_and_flush_flow",
+        "outcome": "passed",
+        "duration": 0.859
+      },
+      {
+        "name": "tests/test_functional.py::TestCLIFunctional::test_cli_memory_list_and_flush",
+        "outcome": "passed",
+        "duration": 0.309
+      },
+      {
+        "name": "tests/test_integration.py::TestDashboardServing::test_index_returns_html",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestDashboardServing::test_index_has_provider_cards",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestDashboardServing::test_404_on_unknown_path",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestStatusAPI::test_status_returns_json",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestStatusAPI::test_status_has_auth_section",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestStatusAPI::test_status_lists_all_providers",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestStatusAPI::test_status_provider_has_status_field",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthAPI::test_connect_rejects_empty_token",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthAPI::test_connect_rejects_missing_provider",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthAPI::test_apikey_rejects_empty",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthAPI::test_logout_rejects_missing_provider",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestRunAPI::test_run_rejects_empty_objective",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestRunAPI::test_run_rejects_no_body",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestRunAPI::test_stop_returns_ok",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestProviderConnection::test_claude_is_connected",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestProviderConnection::test_connected_provider_count",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestTokenValidation::test_claude_token_is_valid",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestTokenValidation::test_verify_rejects_unknown_provider",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestTokenValidation::test_verify_rejects_missing_param",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestTokenValidation::test_verify_reflects_disconnected_provider",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestTokenValidation::test_health_metrics_present_for_connected",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestHistoryAPI::test_history_endpoint_returns_json",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestLiveExecution::test_minimal_task_completes",
+        "outcome": "skipped",
+        "duration": 0
+      },
+      {
+        "name": "tests/test_integration.py::TestAgentConstruction::test_from_env_with_no_keys",
+        "outcome": "passed",
+        "duration": 0.047
+      },
+      {
+        "name": "tests/test_integration.py::TestAgentConstruction::test_status_report_shape",
+        "outcome": "passed",
+        "duration": 0.047
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthManagerUnit::test_store_and_retrieve_session",
+        "outcome": "passed",
+        "duration": 0.378
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthManagerUnit::test_store_and_retrieve_api_key",
+        "outcome": "passed",
+        "duration": 0.363
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthManagerUnit::test_logout_removes_credential",
+        "outcome": "passed",
+        "duration": 0.544
+      },
+      {
+        "name": "tests/test_integration.py::TestAuthManagerUnit::test_status_reflects_connections",
+        "outcome": "passed",
+        "duration": 0.555
+      },
+      {
+        "name": "tests/test_integration.py::TestSubscriptionProviderUnit::test_claude_provider_creation",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestSubscriptionProviderUnit::test_chatgpt_provider_creation",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestSubscriptionProviderUnit::test_gemini_provider_creation",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestSubscriptionProviderUnit::test_unknown_provider_returns_none",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestRegistryFromCredentials::test_builds_registry_from_stored_creds",
+        "outcome": "passed",
+        "duration": 0.376
+      },
+      {
+        "name": "tests/test_integration.py::TestRegistryFromCredentials::test_subscription_and_apikey_both_register",
+        "outcome": "passed",
+        "duration": 0.567
+      },
+      {
+        "name": "tests/test_integration.py::TestConversationNaming::test_claude_conversation_body_has_name_field",
+        "outcome": "passed",
+        "duration": 0.001
+      },
+      {
+        "name": "tests/test_integration.py::TestConversationNaming::test_conversation_name_is_not_empty_for_tests",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestDefaultCriteria::test_ensure_criteria_with_none",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestDefaultCriteria::test_ensure_criteria_with_empty_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestDefaultCriteria::test_ensure_criteria_preserves_user_criteria",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_integration.py::TestSanitizerCompleteness::test_strips_all_known_attributions",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestTaskState::test_snapshot_is_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestTaskState::test_remaining_tokens",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestTaskState::test_near_outage",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestTaskState::test_ralph_fields_initialised",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestTaskState::test_snapshot_includes_ralph_fields",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_alias_is_ralph",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_immediate_success",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_max_attempts_park",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_token_near_outage",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_provider_fallback",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCoreLoopAlias::test_sanitize_applied",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestRalphPhases::test_phases_emitted_in_order",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestRalphPhases::test_multiple_iterations_phase_order",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestRalphPhases::test_phase_history_recorded",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestRalphPhases::test_final_phase_is_idle",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestStrategy::test_strategy_populated_after_run",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestStrategy::test_best_confidence_tracked",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestStrategy::test_consecutive_failures_cause_park",
+        "outcome": "passed",
+        "duration": 0.009
+      },
+      {
+        "name": "tests/test_loop.py::TestStrategy::test_provider_reordering_on_success",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestLessons::test_lessons_recorded",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestLessons::test_lesson_succeeds_on_result",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestLessons::test_lesson_fails_on_error",
+        "outcome": "passed",
+        "duration": 0.002
+      },
+      {
+        "name": "tests/test_loop.py::TestCustomCallbacks::test_custom_reason_fn",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCustomCallbacks::test_custom_plan_fn",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCustomCallbacks::test_custom_plan_park",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCustomCallbacks::test_failing_reason_fn_uses_default",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestCustomCallbacks::test_failing_plan_fn_uses_default",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestPhaseEvents::test_on_phase_receives_events",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestPhaseEvents::test_on_phase_has_iteration",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestPhaseEvents::test_on_phase_crash_ignored",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestHandoff::test_handoff_context_includes_strategy",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestHandoff::test_artifacts_final_set_on_done",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestHandoff::test_low_budget_parks",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestDataclasses::test_reasoning_defaults",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestDataclasses::test_lesson_defaults",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestDataclasses::test_plan_decision_defaults",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestDataclasses::test_strategy_to_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_loop.py::TestDataclasses::test_ralph_phase_values",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_put_get",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_get_missing",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_search_by_tag",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_lru_eviction",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_ttl_expiry",
+        "outcome": "passed",
+        "duration": 0.01
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_summarize",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestWorkingMemory::test_to_dict",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestPersistentMemory::test_save_load",
+        "outcome": "passed",
+        "duration": 0.105
+      },
+      {
+        "name": "tests/test_memory.py::TestPersistentMemory::test_load_missing",
+        "outcome": "passed",
+        "duration": 0.05
+      },
+      {
+        "name": "tests/test_memory.py::TestPersistentMemory::test_append_handoff",
+        "outcome": "passed",
+        "duration": 0.158
+      },
+      {
+        "name": "tests/test_memory.py::TestPersistentMemory::test_merge_working",
+        "outcome": "passed",
+        "duration": 0.108
+      },
+      {
+        "name": "tests/test_memory.py::TestContextOptimizer::test_builds_context",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_memory.py::TestContextOptimizer::test_respects_budget",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestMachineIdentity::test_machine_id_is_stable_and_non_empty",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestMachineIdentity::test_current_user_is_reported",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestOwnerOnlyPaths::test_private_dir_is_owner_only",
+        "outcome": "passed",
+        "duration": 0.074
+      },
+      {
+        "name": "tests/test_platform.py::TestOwnerOnlyPaths::test_restrict_to_owner_locks_down_a_shared_file",
+        "outcome": "passed",
+        "duration": 0.133
+      },
+      {
+        "name": "tests/test_platform.py::TestOwnerOnlyPaths::test_restrict_to_owner_reports_missing_paths",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestOwnerOnlyPaths::test_description_matches_the_documented_expectation",
+        "outcome": "passed",
+        "duration": 0.097
+      },
+      {
+        "name": "tests/test_platform.py::TestPixelAutomationDispatch::test_delegate_takes_priority_over_native_commands",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestPixelAutomationDispatch::test_unknown_platform_fails_loudly[capture-args0]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestPixelAutomationDispatch::test_unknown_platform_fails_loudly[click-args1]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestPixelAutomationDispatch::test_unknown_platform_fails_loudly[type_text-args2]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestPixelAutomationDispatch::test_unknown_platform_fails_loudly[key-args3]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_png_encoding_round_trips_dimensions_and_pixels",
+        "outcome": "passed",
+        "duration": 0.001
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_named_combos_parse_without_a_keyboard_layout[enter-expected0]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_named_combos_parse_without_a_keyboard_layout[ctrl+shift+f5-expected1]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_named_combos_parse_without_a_keyboard_layout[alt+tab-expected2]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_unparseable_combos_are_rejected[]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_unparseable_combos_are_rejected[ctrl+nosuchkey]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_unparseable_combos_are_rejected[hyper+c]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_virtual_screen_has_a_positive_size",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_platform.py::TestWin32Backend::test_capture_writes_a_png_of_the_requested_region",
+        "outcome": "passed",
+        "duration": 0.005
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderResponse::test_ok_when_no_error",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderResponse::test_not_ok_with_error",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderHealth::test_success_rate",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderHealth::test_cooldown_on_capacity",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderHealth::test_avg_latency",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderRegistry::test_register_and_get",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderRegistry::test_available_excludes_cooldown",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderRegistry::test_fallback_chain_ordered",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderRegistry::test_status_report",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderConfigs::test_all_configs_present",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderConfigs::test_configs_have_required_keys",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderConfigs::test_claude_body_format",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderConfigs::test_openai_body_format",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestProviderConfigs::test_gemini_body_format",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_providers.py::TestCredentialStorePermissions::test_new_store_is_owner_only",
+        "outcome": "passed",
+        "duration": 0.408
+      },
+      {
+        "name": "tests/test_providers.py::TestCredentialStorePermissions::test_tightens_a_legacy_world_readable_store",
+        "outcome": "passed",
+        "duration": 0.726
+      },
+      {
+        "name": "tests/test_providers.py::TestCredentialStorePermissions::test_save_leaves_no_temp_file_behind",
+        "outcome": "passed",
+        "duration": 0.38
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_claude_attribution",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_generated_with_claude",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_chatgpt_attribution",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_gemini_attribution",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_deepseek_attribution",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_preserves_normal_text",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripAttributions::test_as_ai_model",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestReplaceEmDashes::test_clause_break",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestReplaceEmDashes::test_unicode_em_dash",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestReplaceEmDashes::test_bullet_style",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestReplaceEmDashes::test_preserves_single_hyphens",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStraightenQuotes::test_curly_singles",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStraightenQuotes::test_curly_doubles",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripFiller::test_happy_to",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripFiller::test_certainly",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestStripFiller::test_great_question",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestCollapseWhitespace::test_multiple_blank_lines",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestCollapseWhitespace::test_trailing_spaces",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestSanitizerPipeline::test_full_pipeline",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestSanitizerPipeline::test_idempotent",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_sanitize.py::TestSanitizerPipeline::test_custom_pass",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[claude]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[gemini]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[chatgpt]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[deepseek]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[glm]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_http_providers_instantiate[kimi]",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_claude_subscription_provider_instantiates",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_chatgpt_subscription_provider_instantiates",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestProviderSmoke::test_gemini_subscription_provider_instantiates",
+        "outcome": "passed",
+        "duration": 0.0
+      },
+      {
+        "name": "tests/test_smoke.py::TestSecuritySmoke::test_credential_store_encryption_cycle",
+        "outcome": "passed",
+        "duration": 0.857
+      },
+      {
+        "name": "tests/test_smoke.py::TestDashboardSmoke::test_dashboard_server_startup_and_endpoints",
+        "outcome": "passed",
+        "duration": 0.752
+      },
+      {
+        "name": "tests/test_smoke.py::TestCLISmoke::test_cli_help_smoke",
+        "outcome": "passed",
+        "duration": 0.249
+      },
+      {
+        "name": "tests/test_smoke.py::TestCLISmoke::test_cli_auth_help_smoke",
+        "outcome": "passed",
+        "duration": 0.235
+      },
+      {
+        "name": "tests/test_smoke.py::TestCLISmoke::test_cli_status_smoke",
+        "outcome": "passed",
+        "duration": 0.462
+      },
+      {
+        "name": "tests/test_smoke.py::TestHealthTrackingSmoke::test_health_metrics_smoke",
+        "outcome": "passed",
+        "duration": 0.0
+      }
+    ]
   }
 ]

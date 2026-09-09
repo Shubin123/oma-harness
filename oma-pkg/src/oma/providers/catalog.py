@@ -546,3 +546,67 @@ def resolve_model(
     # Nothing we know about is served; take whatever the provider offers first
     # rather than failing outright.
     return live[0] if live else wanted
+
+
+class VerifyResult(Enum):
+    """What asking a provider about a key told us."""
+
+    VALID = "valid"            # the provider answered with its model list
+    REJECTED = "rejected"      # the provider refused the credential
+    UNVERIFIABLE = "unverifiable"  # no catalog endpoint to ask
+    UNREACHABLE = "unreachable"    # network or provider is down
+
+
+def verify_key(
+    provider_id: str,
+    api_key: str,
+    extra: dict | None = None,
+    timeout: float = 10.0,
+) -> tuple[VerifyResult, str]:
+    """
+    Check a credential by asking the provider which models it serves.
+
+    Distinguishing "this key is wrong" from "this provider has no way to
+    check" matters: the first should stop the user, the second should not.
+    """
+    entry = CATALOG.get(provider_id)
+    if entry is None:
+        return VerifyResult.REJECTED, f"unknown provider: {provider_id}"
+
+    url = entry.models_endpoint
+    for field_name, value in (extra or {}).items():
+        url = url.replace("{" + field_name + "}", str(value))
+    if "{" in url:
+        missing = url.split("{")[1].split("}")[0]
+        return VerifyResult.REJECTED, f"missing required field: {missing}"
+
+    headers = {"Content-Type": "application/json"}
+    if entry.api_style is ApiStyle.ANTHROPIC:
+        headers["x-api-key"] = api_key
+        headers["anthropic-version"] = "2023-06-01"
+    elif entry.api_style is ApiStyle.GEMINI:
+        url = f"{url}?key={api_key}"
+    elif api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    try:
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return VerifyResult.REJECTED, f"provider rejected the credential (HTTP {e.code})"
+        if e.code in (404, 405, 501):
+            return VerifyResult.UNVERIFIABLE, "provider publishes no model catalog"
+        return VerifyResult.UNREACHABLE, f"provider returned HTTP {e.code}"
+    except (urllib.error.URLError, OSError) as e:
+        return VerifyResult.UNREACHABLE, f"could not reach the provider: {e}"
+    except (ValueError, json.JSONDecodeError):
+        return VerifyResult.UNVERIFIABLE, "provider returned something other than JSON"
+
+    models = _extract_model_ids(payload)
+    if not models:
+        return VerifyResult.UNVERIFIABLE, "provider published no model catalog"
+
+    _MODEL_CACHE[provider_id] = (time.time(), models)
+    return VerifyResult.VALID, f"{len(models)} models available, e.g. {models[0]}"

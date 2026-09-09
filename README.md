@@ -110,7 +110,55 @@ result = agent.run("continue", resume_from=result.task_id)
 
 ## Providers
 
-Six LLM providers, two connection modes, zero SDK dependencies. All via raw `urllib` (Python) or `fetch` (TypeScript).
+Twenty-two providers, eighteen of them usable without paying, zero SDK
+dependencies. Every call is raw `urllib` (Python) or `fetch` (TypeScript).
+
+```bash
+oma providers --free      # what you can use without paying, with signup links
+oma providers --catalog   # everything, grouped by what it costs
+oma tiers                 # where requests went, and what escalated
+```
+
+| Tier | Providers | What you get |
+|------|-----------|--------------|
+| `local` | Ollama, LM Studio | Unlimited, on your own hardware. No account. |
+| `free` | Groq, Cerebras, Google AI Studio, OpenRouter, GitHub Models, Cloudflare Workers AI | Free within published rate limits. No card. |
+| `freemium` | Mistral, Cohere, NVIDIA NIM, SambaNova, Hugging Face, Together, Hyperbolic, DeepInfra, Nebius, GLM | A free allowance, then billed. |
+| `paid` | Claude, OpenAI, DeepSeek, Kimi | Billed per token from the first call. |
+
+Signing up is something you do yourself -- `oma providers --free` prints the
+link for each one, and the dashboard's **Providers** tab links straight to it,
+takes the pasted key, and checks it against the provider's API before storing
+it encrypted.
+
+Adding a provider is a catalog entry in `oma/providers/catalog.py`, not new
+transport code: the HTTP table and environment discovery are both generated
+from it. Model identifiers are resolved against each provider's live model
+list, so a retired model name falls back to a working one instead of failing
+the first call of a task.
+
+### Tiering
+
+The router spends free capacity before it spends money. Candidates are grouped
+by tier and the cheapest group with anyone left in it wins; when a free
+provider trips its rate limit the quota manager takes it out of the running,
+that group empties, and the next request escalates on its own. Every escalation
+is recorded, so `oma tiers` and the dashboard can show the moment a task
+stopped being free.
+
+```python
+from oma.core.tiers import TierMode, TierPolicy
+from oma.providers.catalog import Tier
+
+# Never spend anything: the router selects nothing rather than reaching for a
+# metered provider -- which is what an unattended loop needs.
+agent.router.tier_policy = TierPolicy(mode=TierMode.FREE_ONLY)
+
+# Or set a ceiling and let it escalate up to that point.
+agent.router.tier_policy = TierPolicy(max_tier=Tier.FREEMIUM)
+```
+
+### Connection modes
 
 | Provider | Env var | API style | Subscription mode |
 |----------|---------|-----------|-------------------|
@@ -222,6 +270,9 @@ oma run <obj> --resume <id>  Resume a parked task
 
 oma status                   Show agent status
 oma providers                List configured providers
+oma providers --free         List providers usable without paying, with signup links
+oma providers --catalog      List every supported provider, grouped by cost
+oma tiers                    Show the tier policy, spend by tier, and escalations
 
 oma auth add <provider> <key>    Store a credential
 oma auth remove <provider>       Remove a credential
@@ -281,6 +332,7 @@ oma-pkg/                     # distributable Python package
       web.py                 # web dashboard (built-in HTTP server)
     providers/
       auth.py                # credential store (encrypted, atomic)
+      catalog.py             # every provider, its tier, and where to sign up
       subscription.py        # subscription-based providers
       ...
     ...
