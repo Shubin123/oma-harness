@@ -29,7 +29,7 @@ release: ## Build every artifact for this platform, wheel and sdist included
 	$(PYTHON) tools/build.py --clean --wheel
 	@echo ""
 	@echo "Artifacts in dist/. To publish, tag and push:"
-	@echo "  git tag v0.2.0 && git push origin v0.2.0"
+	@echo "  git tag vX.Y.Z && git push origin vX.Y.Z"
 
 # ---- test ----
 

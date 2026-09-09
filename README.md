@@ -321,7 +321,7 @@ On macOS and Linux the Makefile wraps the same commands (`make build`,
 `make test`, `make lint`). Windows has no make by default, so call the script
 directly.
 
-Releases are cut by pushing a tag: `git tag v0.2.0 && git push origin v0.2.0`.
+Releases are cut by pushing a tag: `git tag v0.2.1 && git push origin v0.2.1`.
 The release workflow builds on macOS arm64, macOS x64, Linux x64 and Windows
 x64, then publishes the archives and checksums to a GitHub release.
 

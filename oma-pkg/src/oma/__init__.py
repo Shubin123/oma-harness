@@ -1,6 +1,6 @@
 """OMA - Open Multi Agent harness."""
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 from oma.agent import OMA
 from oma.automation.memory import ContextOptimizer, PersistentMemory, WorkingMemory
