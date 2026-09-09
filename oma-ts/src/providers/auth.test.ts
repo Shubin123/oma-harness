@@ -5,6 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { cleanToken, detectAuthType, CredentialStore, AuthManager } from './auth.js';
 import { PersistentMemory } from '../automation/memory.js';
+import { expectedPermissions, isOwnerOnly } from '../platformCompat.js';
 
 test('cleanToken sanitizes quotes, bearer, and cookies', () => {
   assert.equal(cleanToken('claude', ' "sk-ant-api01" '), 'sk-ant-api01');
@@ -36,8 +37,11 @@ test('CredentialStore and AuthManager safe storage and flush', () => {
   const info = mgr.storageInfo() as Record<string, unknown>;
   assert.equal(info.file_exists, true);
   assert.equal(info.provider_count, 2);
-  assert.equal(info.file_permissions, '0o600');
-  assert.equal(info.dir_permissions, '0o700');
+  // Owner-only means a 0600 mode on POSIX and a locked-down ACL on Windows.
+  assert.equal(info.file_permissions, expectedPermissions(false));
+  assert.equal(info.dir_permissions, expectedPermissions(true));
+  assert.ok(isOwnerOnly(storePath), 'credential file is readable beyond its owner');
+  assert.ok(isOwnerOnly(tmpDir), 'credential directory is readable beyond its owner');
 
   // Verify flush removes credentials and cleans up
   const res = mgr.flush();
@@ -53,6 +57,10 @@ test('PersistentMemory flush and permissions', () => {
 
   mem.save('task_1', { hello: 'world' });
   mem.save('task_2', { foo: 'bar' });
+
+  assert.ok(isOwnerOnly(tmpDir), 'memory directory is readable beyond its owner');
+  assert.ok(isOwnerOnly(path.join(tmpDir, 'task_1.json')),
+    'memory file is readable beyond its owner');
 
   assert.deepEqual(mem.listTasks().sort(), ['task_1', 'task_2']);
   assert.equal(mem.flush('task_1'), 1);

@@ -10,9 +10,17 @@ OMA stores data in two primary locations on the local system:
 
 | Store | Location | Content | File Permissions | Dir Permissions |
 |---|---|---|---|---|
-| **Credentials Store** | `~/.oma/credentials.json` | Encrypted provider credentials (API keys and browser session cookies/tokens) | `0600` (`-rw-------`) | `0700` (`drwx------`) |
-| **Persistent Task Memory** | `.oma_memory/*.json` (per project) | Task execution checkpoints, working memory states, and handoff summaries | `0600` (`-rw-------`) | `0700` (`drwx------`) |
+| **Credentials Store** | `~/.oma/credentials.json` | Encrypted provider credentials (API keys and browser session cookies/tokens) | Owner-only | Owner-only |
+| **Persistent Task Memory** | `.oma_memory/*.json` (per project) | Task execution checkpoints, working memory states, and handoff summaries | Owner-only | Owner-only |
 | **Test History** | `tests/.history/runs.json` | Test execution timestamps, durations, and pass/fail counts (no secrets) | Standard user file | Standard dir |
+
+**Owner-only** means mode `0600` for files and `0700` for directories on macOS
+and Linux. Windows mode bits carry no access-control meaning -- `chmod` there
+only toggles the read-only attribute -- so the same guarantee is expressed as an
+ACL applied with `icacls`: inheritance is removed and only your account is
+granted access, alongside the machine's privileged principals (`SYSTEM`,
+`Administrators`), which mirrors root's access to a `0600` file on POSIX.
+`oma auth info` reports which form is in effect.
 
 > [!IMPORTANT]
 > Neither API keys nor session cookies are ever written to git repositories, test artifacts, or logs. The root `.gitignore` explicitly excludes `.oma/`, `credentials.json`, `.oma_memory/`, and environment secrets.
@@ -26,12 +34,13 @@ OMA stores data in two primary locations on the local system:
 - The machine identifier is derived from local hardware information:
   - **macOS**: Hardware UUID via `ioreg -rd1 -c IOPlatformExpertDevice` (`IOPlatformUUID`).
   - **Linux**: System machine ID via `/etc/machine-id` or `/var/lib/dbus/machine-id`.
+  - **Windows**: `MachineGuid` from `HKLM\SOFTWARE\Microsoft\Cryptography`.
   - **Fallback**: Composite string `{hostname}:{username}`.
 
 ### Disk Obfuscation & Atomic Writes
 - Stored credentials are obfuscated via stream XOR with the derived key and base64 encoded into a versioned JSON envelope (`{"data": "...", "v": 1}`).
 - **Atomic Replacement**: To eliminate partial writes or race conditions between multiple agents, updates are written to a mode `0600` temporary file (`.credentials-<pid>.tmp`) in `~/.oma/` and atomically swapped into place via `os.replace` (Python) or `fs.renameSync` (Node.js).
-- **Permission Enforcement**: Both directory `0700` and file `0600` permissions are enforced programmatically upon every initialization, automatically tightening any legacy permissions.
+- **Permission Enforcement**: Owner-only access to both the directory and the file is enforced programmatically upon every initialization, automatically tightening a store an older release left readable -- including explicit Windows ACEs, which removing inheritance alone would leave in place.
 
 ---
 
@@ -194,11 +203,15 @@ mem.flush(); // Flush all tasks
 ### 8. Manual Emergency Purge
 If CLI or code is inaccessible, the user can manually purge all stored data via shell:
 ```bash
-# Wipe credentials
-rm -f ~/.oma/credentials.json
+# macOS / Linux
+rm -f ~/.oma/credentials.json    # wipe credentials
+rm -rf .oma_memory/              # wipe local persistent task checkpoints
+```
 
-# Wipe local persistent task checkpoints
-rm -rf .oma_memory/
+```powershell
+# Windows
+del "$env:USERPROFILE\.oma\credentials.json"
+Remove-Item -Recurse -Force .oma_memory
 ```
 
 ---

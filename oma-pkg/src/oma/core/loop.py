@@ -23,12 +23,13 @@ RALPH phases per iteration:
   H - Handoff: if done or at edge, create handoff; else loop to Reason
 """
 
-import time
-import json
 import hashlib
-from dataclasses import dataclass, field, asdict
-from typing import Any, Optional, Callable
+import json
+import time
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field
 from enum import Enum
+from typing import Any
 
 
 class Status(Enum):
@@ -85,7 +86,7 @@ class PlanDecision:
     action: str = "continue"          # "continue" | "done" | "park"
     reason: str = ""
     reorder_providers: list = field(default_factory=list)
-    adjust_temperature: Optional[float] = None
+    adjust_temperature: float | None = None
     refine_prompt: str = ""
     escalate: bool = False
 
@@ -203,10 +204,10 @@ class RalphLoop:
         solve_fn: Callable,
         sanitize_fn: Callable,
         handoff_fn: Callable,
-        reason_fn: Optional[Callable] = None,
-        plan_fn: Optional[Callable] = None,
-        on_phase: Optional[Callable] = None,
-        criteria_fn: Optional[Callable] = None,
+        reason_fn: Callable | None = None,
+        plan_fn: Callable | None = None,
+        on_phase: Callable | None = None,
+        criteria_fn: Callable | None = None,
     ):
         self.config = config
         self.solve = solve_fn
@@ -217,7 +218,7 @@ class RalphLoop:
         self.on_phase = on_phase
         self.criteria = criteria_fn
 
-    def _emit(self, state: TaskState, phase: RalphPhase, data: dict = None):
+    def _emit(self, state: TaskState, phase: RalphPhase, data: dict | None = None):
         """Emit a phase event and update state tracking."""
         event = PhaseEvent(
             phase=phase,
@@ -237,7 +238,7 @@ class RalphLoop:
             except Exception:
                 pass  # observer failures must not break the loop
 
-    def run(self, objective: str, initial_criteria: Optional[dict] = None) -> TaskState:
+    def run(self, objective: str, initial_criteria: dict | None = None) -> TaskState:
         state = TaskState(
             task_id=hashlib.sha256(f"{objective}{time.time()}".encode()).hexdigest()[:12],
             objective=objective,
@@ -344,7 +345,8 @@ class RalphLoop:
 
         if self.reason_fn:
             try:
-                return self.reason_fn(state, strategy)
+                reasoning: Reasoning = self.reason_fn(state, strategy)
+                return reasoning
             except Exception:
                 pass
 
@@ -489,7 +491,7 @@ class RalphLoop:
 
         if self.plan_fn:
             try:
-                decision = self.plan_fn(state, strategy, lesson)
+                decision: PlanDecision = self.plan_fn(state, strategy, lesson)
                 # apply the decision's strategy effects
                 self._apply_plan_effects(strategy, lesson, decision)
                 return decision
@@ -587,10 +589,10 @@ class RalphLoop:
             f"best confidence: {state.confidence:.2f} (threshold: {state.confidence_threshold})",
             f"strategy: {json.dumps(strategy_info, default=str)}",
             f"lessons learned: {len(state.lessons)}",
-            f"recent progress:",
+            "recent progress:",
             *progress_summary,
             f"artifacts keys: {list(state.artifacts.keys())}",
-            f"=== NEXT WORKER: pick up from here ===",
+            "=== NEXT WORKER: pick up from here ===",
         ])
 
 

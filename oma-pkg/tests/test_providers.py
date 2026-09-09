@@ -1,12 +1,13 @@
 """Tests for the provider system."""
 
-import os
-import stat
 
 import pytest
-from oma.providers.base import Provider, ProviderResponse, ErrorClass, RateLimiter
-from oma.providers.registry import ProviderRegistry, ProviderHealth
-from oma.providers.http_providers import PROVIDER_CONFIGS, _ParsedResponse
+
+from oma import platform_compat
+from oma.providers.base import ErrorClass, Provider, ProviderResponse
+from oma.providers.http_providers import PROVIDER_CONFIGS
+from oma.providers.registry import ProviderHealth, ProviderRegistry
+from tests.conftest import assert_owner_only, loosen_permissions
 
 pytestmark = pytest.mark.unit
 
@@ -176,19 +177,20 @@ class TestCredentialStorePermissions:
 
     def test_new_store_is_owner_only(self, tmp_path):
         _, path = self._store(tmp_path)
-        assert stat.S_IMODE(path.stat().st_mode) == 0o600
-        assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+        assert_owner_only(path)
+        assert_owner_only(path.parent)
 
     def test_tightens_a_legacy_world_readable_store(self, tmp_path):
         from oma.providers.auth import CredentialStore
 
         _, path = self._store(tmp_path)
-        os.chmod(path.parent, 0o755)
-        os.chmod(path, 0o644)
+        loosen_permissions(path.parent)
+        loosen_permissions(path)
+        assert not platform_compat.is_owner_only(path)
 
         reopened = CredentialStore(path=path)
-        assert stat.S_IMODE(path.stat().st_mode) == 0o600
-        assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+        assert_owner_only(path)
+        assert_owner_only(path.parent)
         assert reopened.get("claude").value == "tok"
 
     def test_save_leaves_no_temp_file_behind(self, tmp_path):

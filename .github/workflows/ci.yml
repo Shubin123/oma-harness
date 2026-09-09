@@ -7,12 +7,39 @@ on:
     branches: [main]
 
 jobs:
-  test-python:
-    name: Python tests
+  lint:
+    name: Lint and type-check
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        working-directory: oma-pkg
+        run: pip install -e ".[dev]"
+      - name: Ruff
+        working-directory: oma-pkg
+        run: ruff check src/ tests/
+      - name: Mypy
+        working-directory: oma-pkg
+        run: mypy src/oma/ --ignore-missing-imports
+
+  test-python:
+    name: Python ${{ matrix.python-version }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        # Every supported interpreter on Linux; one interpreter on macOS and
+        # Windows, which is what catches the platform-specific paths.
+        include:
+          - { os: ubuntu-latest, python-version: "3.10" }
+          - { os: ubuntu-latest, python-version: "3.11" }
+          - { os: ubuntu-latest, python-version: "3.12" }
+          - { os: ubuntu-latest, python-version: "3.13" }
+          - { os: macos-latest, python-version: "3.12" }
+          - { os: windows-latest, python-version: "3.12" }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,24 +47,22 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install package
         working-directory: oma-pkg
-        run: |
-          pip install -e ".[dev]"
-      - name: Lint
-        working-directory: oma-pkg
-        run: ruff check src/ tests/
-      - name: Type check
-        working-directory: oma-pkg
-        run: mypy src/oma/ --ignore-missing-imports
+        run: pip install -e ".[dev]"
       - name: Test
         working-directory: oma-pkg
         run: pytest tests/ -v --tb=short -m "not live"
 
   test-typescript:
-    name: TypeScript build
-    runs-on: ubuntu-latest
+    name: Node ${{ matrix.node-version }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        node-version: ["20", "22"]
+        include:
+          - { os: ubuntu-latest, node-version: "20" }
+          - { os: ubuntu-latest, node-version: "22" }
+          - { os: macos-latest, node-version: "22" }
+          - { os: windows-latest, node-version: "22" }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,14 +71,30 @@ jobs:
       - name: Install deps
         working-directory: oma-ts
         run: npm install
-      - name: Compile
+      - name: Type-check
         working-directory: oma-ts
         run: npx tsc --noEmit
-      - name: Bundle check
+      - name: Build and test
         working-directory: oma-ts
-        run: |
-          npx esbuild src/cli.ts \
-            --bundle --platform=node --target=node20 --format=esm \
-            --outfile=dist/oma-bundle.mjs \
-            --banner:js="import{createRequire}from'module';const require=createRequire(import.meta.url);"
-          echo "Bundle size: $(wc -c < dist/oma-bundle.mjs) bytes"
+        run: npm run build && npm test
+
+  build:
+    name: Build binaries (smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install package
+        working-directory: oma-pkg
+        run: pip install -e ".[dev]"
+      # Tests already ran above; this proves the release path still builds and
+      # that both binaries answer --help.
+      - name: Build
+        run: python tools/build.py --skip-tests
+      - name: List artifacts
+        run: ls -lh dist/

@@ -8,21 +8,16 @@ and task resumption across worker sessions.
 
 import http.server
 import json
-import os
 import threading
-import time
-from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
 from oma.agent import OMA
-from oma.automation.memory import PersistentMemory, WorkingMemory
-from oma.core.criteria import CriteriaSet, Criterion, CriterionType
-from oma.core.loop import LoopConfig, Status, TaskState
+from oma.automation.memory import PersistentMemory
+from oma.core.loop import LoopConfig, Status
 from oma.gui.web import DashboardHandler
 from oma.providers.auth import AuthManager, CredentialStore
-from oma.providers.base import ErrorClass, Provider, ProviderResponse
+from oma.providers.base import Provider, ProviderResponse
 from oma.providers.registry import ProviderRegistry
 
 pytestmark = pytest.mark.e2e

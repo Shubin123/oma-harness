@@ -11,8 +11,35 @@ can be reviewed over time. History includes:
 
 import json
 import os
+import subprocess
 import time
 from pathlib import Path
+
+from oma import platform_compat
+
+
+def assert_owner_only(path):
+    """Assert nobody but the owner can read `path`, on POSIX or Windows."""
+    assert platform_compat.is_owner_only(path), (
+        f"{path} is readable beyond its owner: "
+        f"{platform_compat.describe_permissions(path)}"
+    )
+
+
+def loosen_permissions(path):
+    """
+    Open `path` up to other local accounts, the way an older OMA release
+    would have left it. Used to check that reopening a store tightens it.
+    """
+    path = Path(path)
+    if platform_compat.IS_WINDOWS:
+        subprocess.run(
+            ["icacls", str(path), "/grant", "*S-1-5-32-545:(R)"],
+            capture_output=True, text=True, check=True,
+        )
+    else:
+        os.chmod(path, 0o755 if path.is_dir() else 0o644)
+
 
 HISTORY_DIR = Path(__file__).parent / ".history"
 HISTORY_FILE = HISTORY_DIR / "runs.json"

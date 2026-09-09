@@ -19,6 +19,7 @@ Design:
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import shutil
@@ -29,7 +30,6 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-
 
 HISTORY_FILE = Path(__file__).parent / ".history" / "runs.json"
 
@@ -108,7 +108,8 @@ def show_history(limit: int = 20):
     print(f"\n{'=' * 72}")
     print(f"  Test History (last {len(recent)} of {len(runs)} runs)")
     print(f"{'=' * 72}")
-    print(f"  {'Timestamp':<20} {'Result':>8} {'Pass':>5} {'Fail':>5} {'Skip':>5} {'Time':>7} {'Token':>6} {'Providers'}")
+    print(f"  {'Timestamp':<20} {'Result':>8} {'Pass':>5} {'Fail':>5} {'Skip':>5} "
+          f"{'Time':>7} {'Token':>6} {'Providers'}")
     print(f"  {'-'*20} {'-'*8} {'-'*5} {'-'*5} {'-'*5} {'-'*7} {'-'*6} {'-'*20}")
 
     for run in recent:
@@ -124,7 +125,8 @@ def show_history(limit: int = 20):
         color = "\033[32m" if result == "PASS" else "\033[31m"
         reset = "\033[0m"
 
-        print(f"  {ts:<20} {color}{result:>8}{reset} {passed:>5} {failed:>5} {skipped:>5} {duration:>6.1f}s {token_ok:>6} {providers}")
+        print(f"  {ts:<20} {color}{result:>8}{reset} {passed:>5} {failed:>5} {skipped:>5} "
+              f"{duration:>6.1f}s {token_ok:>6} {providers}")
 
     print(f"{'=' * 72}")
 
@@ -140,7 +142,7 @@ def show_history(limit: int = 20):
         last_3 = runs[-3:]
         all_failed = all(r.get("exit_code", 1) != 0 for r in last_3)
         if all_failed:
-            print(f"\n  WARNING: Last 3 runs all failed -- investigate before continuing")
+            print("\n  WARNING: Last 3 runs all failed -- investigate before continuing")
 
         # find tests that failed in multiple recent runs
         fail_counts = {}
@@ -151,7 +153,7 @@ def show_history(limit: int = 20):
                     fail_counts[name] = fail_counts.get(name, 0) + 1
         repeat_fails = {k: v for k, v in fail_counts.items() if v >= 2}
         if repeat_fails:
-            print(f"\n  Recurring failures:")
+            print("\n  Recurring failures:")
             for name, count in sorted(repeat_fails.items(), key=lambda x: -x[1]):
                 print(f"    {count}x  {name}")
 
@@ -160,12 +162,8 @@ def show_history(limit: int = 20):
 
 def find_pytest_executable() -> str:
     """Find a Python executable that has pytest installed."""
-    try:
-        import pytest
+    if importlib.util.find_spec("pytest") is not None:
         return sys.executable
-    except ImportError:
-        pass
-    import shutil
     for c in [
         "/opt/homebrew/opt/python@3.11/bin/python3.11",
         "/opt/homebrew/bin/python3.11",
@@ -184,9 +182,9 @@ def start_test_dashboard(host="127.0.0.1", port=8384):
     """Start an ephemeral dashboard server in a background thread if port is free."""
     import http.server
     try:
+        from oma.agent import OMA
         from oma.gui.web import DashboardHandler
         from oma.providers.auth import AuthManager
-        from oma.agent import OMA
 
         DashboardHandler.auth_manager = AuthManager()
         try:
@@ -219,7 +217,8 @@ def main():
     parser.add_argument("--functional", action="store_true", help="Run functional tests only")
     parser.add_argument("--smoke", action="store_true", help="Run smoke tests only")
     parser.add_argument("--e2e", action="store_true", help="Run end-to-end tests only")
-    parser.add_argument("--all", action="store_true", help="Run all tests (unit, functional, smoke, e2e, integration)")
+    parser.add_argument("--all", action="store_true",
+                        help="Run all tests (unit, functional, smoke, e2e, integration)")
     parser.add_argument("--live", action="store_true",
                        help="Enable live provider smoke tests (creates 1 conversation)")
     parser.add_argument("--coverage", action="store_true",
@@ -261,12 +260,12 @@ def main():
 
         if status["reachable"]:
             providers = status.get("connected_providers", [])
-            print(f"  Dashboard: UP")
+            print("  Dashboard: UP")
             print(f"  Connected: {', '.join(providers) if providers else 'none'}")
 
             # Pre-flight token validation
             if providers:
-                print(f"\n  Validating tokens...")
+                print("\n  Validating tokens...")
                 token_results = validate_tokens(url)
                 for provider, result in token_results.items():
                     icon = "OK" if result.get("valid") else "EXPIRED"
@@ -274,7 +273,7 @@ def main():
                     print(f"    {provider}: {icon}" + (f" ({detail})" if detail else ""))
         else:
             print(f"  Dashboard: DOWN ({status.get('error', 'unknown')})")
-            print(f"  Live dashboard integration tests will be skipped")
+            print("  Live dashboard integration tests will be skipped")
 
     # Build pytest args
     pytest_args = ["tests/", "-v", "--tb=short"]
@@ -296,10 +295,10 @@ def main():
     env = {"OMA_TEST_URL": url}
     if args.live:
         env["OMA_TEST_LIVE"] = "1"
-        print(f"\n  LIVE TESTS ENABLED")
+        print("\n  LIVE TESTS ENABLED")
 
     print(f"\n{'=' * 60}")
-    print(f"  Running tests...")
+    print("  Running tests...")
     print(f"{'=' * 60}\n")
 
     t0 = time.time()
@@ -316,12 +315,12 @@ def main():
 
     # 6. Summary
     print(f"\n{'=' * 60}")
-    print(f"  Summary")
+    print("  Summary")
     print(f"{'=' * 60}")
     print(f"  Time: {elapsed:.1f}s")
     print(f"  Exit: {'PASS' if result.returncode == 0 else 'FAIL'}")
     if args.live:
-        print(f"  Note: 1 conversation was created for live smoke test")
+        print("  Note: 1 conversation was created for live smoke test")
     print(f"  History: {HISTORY_FILE}")
     print(f"{'=' * 60}")
 

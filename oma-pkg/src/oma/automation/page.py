@@ -13,9 +13,10 @@ content loads incrementally. The observer pattern catches it all.
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, List
 from enum import Enum
+from typing import Any
 
 
 class ScrollStrategy(Enum):
@@ -160,8 +161,8 @@ class PageAutomator:
     def __init__(
         self,
         js_fn: Callable[[str], Any],
-        config: Optional[PageConfig] = None,
-        wait_fn: Optional[Callable[[float], None]] = None,
+        config: PageConfig | None = None,
+        wait_fn: Callable[[float], None] | None = None,
     ):
         self.js = js_fn
         self.config = config or PageConfig()
@@ -169,19 +170,21 @@ class PageAutomator:
 
     def attach_observer(self) -> str:
         """Inject the mutation observer into the page."""
-        return self.js(OBSERVER_INJECT)
+        return str(self.js(OBSERVER_INJECT))
 
     def check_state(self) -> dict:
         """Check current scroll position and pending mutations."""
         raw = self.js(CHECK_MUTATIONS)
-        return json.loads(raw) if isinstance(raw, str) else raw
+        state: dict = json.loads(raw) if isinstance(raw, str) else raw
+        return state
 
     def scroll_step(self) -> dict:
         """Scroll down one step."""
         script = SCROLL_BY.format(step=self.config.scroll_step_px)
         raw = self.js(script)
         self.wait(self.config.scroll_pause_ms / 1000.0)
-        return json.loads(raw) if isinstance(raw, str) else raw
+        position: dict = json.loads(raw) if isinstance(raw, str) else raw
+        return position
 
     def extract_content(self) -> str:
         """Extract text content from the current viewport/page."""
@@ -189,7 +192,7 @@ class PageAutomator:
             ignore_json=json.dumps(self.config.ignore_selectors),
             select_json=json.dumps(self.config.extract_selectors),
         )
-        return self.js(script)
+        return str(self.js(script))
 
     def full_scroll_and_extract(self) -> PageState:
         """

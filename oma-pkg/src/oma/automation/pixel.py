@@ -11,19 +11,30 @@ Approach:
 Platform support:
   - macOS: screencapture + cliclick / AppleScript
   - Linux: scrot/grim + xdotool/ydotool
-  - Windows: PowerShell screen capture + SendKeys
+  - Windows: user32/gdi32 through ctypes (see win32.py)
 
 When running inside a harness with browser tools (MCP computer_* tools),
 delegates to those instead of raw commands.
 """
 
-import subprocess
+import os
 import platform
+import subprocess
 import tempfile
 import time
-import os
 from dataclasses import dataclass
-from typing import Optional, Tuple
+
+
+def _win32():
+    """
+    Import the Win32 backend lazily.
+
+    It is Windows-only, so importing it at module scope would break the
+    automation package everywhere else.
+    """
+    from . import win32
+
+    return win32
 
 
 @dataclass
@@ -66,12 +77,12 @@ class PixelAutomator:
         self.system = platform.system()
         self.delegate = mcp_delegate
 
-    def capture(self, region: Optional[ScreenRegion] = None) -> str:
+    def capture(self, region: ScreenRegion | None = None) -> str:
         """
         Capture framebuffer to a temp PNG. Returns path.
         """
         if self.delegate:
-            return self.delegate("screenshot", region=region)
+            return str(self.delegate("screenshot", region=region))
 
         path = os.path.join(tempfile.gettempdir(), f"oma_capture_{int(time.time())}.png")
 
@@ -89,20 +100,12 @@ class PixelAutomator:
                 cmd = ["grim", path]
 
         elif self.system == "Windows":
-            # powershell screenshot
-            ps = (
-                f"Add-Type -AssemblyName System.Windows.Forms;"
-                f"$s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;"
-                f"$b = New-Object Drawing.Bitmap($s.Width,$s.Height);"
-                f"$g = [Drawing.Graphics]::FromImage($b);"
-                f"$g.CopyFromScreen($s.Location,[Drawing.Point]::Empty,$s.Size);"
-                f"$b.Save('{path}')"
-            )
-            cmd = ["powershell", "-Command", ps]
+            return str(_win32().capture(path, region))
+
         else:
             raise RuntimeError(f"unsupported platform: {self.system}")
 
-        subprocess.run(cmd, check=True, capture_output=True, timeout=10)
+        subprocess.run(cmd, check=True, capture_output=True, timeout=30)
         return path
 
     def click(self, target: ClickTarget):
@@ -128,6 +131,12 @@ class PixelAutomator:
                 check=True, capture_output=True, timeout=5
             )
 
+        elif self.system == "Windows":
+            _win32().click(target.x, target.y, target.button, target.clicks)
+
+        else:
+            raise RuntimeError(f"unsupported platform: {self.system}")
+
     def type_text(self, action: TypeAction):
         """Type text with inter-keystroke delay."""
         if self.delegate:
@@ -144,6 +153,12 @@ class PixelAutomator:
                 ["xdotool", "type", "--delay", str(action.delay_ms), action.text],
                 check=True, capture_output=True, timeout=30
             )
+
+        elif self.system == "Windows":
+            _win32().type_text(action.text, action.delay_ms)
+
+        else:
+            raise RuntimeError(f"unsupported platform: {self.system}")
 
     def key(self, combo: str):
         """Press a key combination (e.g., 'cmd+c', 'ctrl+shift+t')."""
@@ -162,9 +177,15 @@ class PixelAutomator:
                 check=True, capture_output=True, timeout=5
             )
 
+        elif self.system == "Windows":
+            _win32().press_combo(combo)
+
+        else:
+            raise RuntimeError(f"unsupported platform: {self.system}")
+
     def wait_for_change(
         self,
-        region: Optional[ScreenRegion] = None,
+        region: ScreenRegion | None = None,
         timeout_s: float = 10.0,
         poll_interval_s: float = 0.5,
     ) -> bool:

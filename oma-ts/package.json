@@ -9,16 +9,22 @@
   },
   "scripts": {
     "build": "tsc",
-    "bundle": "esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/oma-bundle.mjs --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\"",
-    "build:binary": "./build_node.sh",
+    "bundle": "esbuild src/cli.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/oma-bundle.cjs",
+    "build:binary": "node ../tools/build.mjs --target node",
     "start": "node dist/cli.js",
     "dev": "tsx src/cli.ts",
     "gui": "node dist/cli.js gui",
     "web": "node dist/cli.js web",
-    "test": "node --test dist/**/*.test.js",
-    "clean": "rm -rf dist oma-bin"
+    "test": "node --test dist/",
+    "clean": "node -e \"const fs=require('fs');for(const d of ['dist','oma-bin'])fs.rmSync(d,{recursive:true,force:true})\""
   },
-  "keywords": ["llm", "multi-agent", "automation", "ai", "harness"],
+  "keywords": [
+    "llm",
+    "multi-agent",
+    "automation",
+    "ai",
+    "harness"
+  ],
   "author": "shuba",
   "license": "MIT",
   "devDependencies": {

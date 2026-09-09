@@ -16,15 +16,13 @@ Zero external dependencies. Works with any ProviderRegistry instance.
 
 from __future__ import annotations
 
-import hashlib
 import json
-import math
 import random
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -169,7 +167,7 @@ class QuotaManager:
     """
 
     def __init__(self) -> None:
-        self.entries: Dict[str, QuotaEntry] = {}
+        self.entries: dict[str, QuotaEntry] = {}
 
     def mark_exhausted(self, provider_id: str, retry_after_s: float = 300.0) -> None:
         entry = self.entries.setdefault(provider_id, QuotaEntry())
@@ -211,7 +209,7 @@ class QuotaManager:
 # ---------------------------------------------------------------------------
 
 # Default pricing per 1M tokens (input, output)
-DEFAULT_PRICING: Dict[str, Tuple[float, float]] = {
+DEFAULT_PRICING: dict[str, tuple[float, float]] = {
     "claude": (3.00, 15.00),
     "chatgpt": (2.50, 10.00),
     "gemini": (0.075, 0.30),
@@ -251,12 +249,12 @@ class CostTracker:
 
     def __init__(
         self,
-        pricing: Dict[str, Tuple[float, float]] = None,
-        budgets: Dict[str, BudgetRule] = None,
+        pricing: dict[str, tuple[float, float]] | None = None,
+        budgets: dict[str, BudgetRule] | None = None,
     ) -> None:
         self.pricing = pricing or dict(DEFAULT_PRICING)
         self.budgets = budgets or {}
-        self.entries: Dict[str, CostEntry] = {}
+        self.entries: dict[str, CostEntry] = {}
 
     def record(
         self, provider_id: str, tokens_in: int, tokens_out: int
@@ -287,7 +285,7 @@ class CostTracker:
         entry.monthly_cost += cost
         entry.request_count += 1
 
-    def check_budget(self, provider_id: str) -> Tuple[bool, float, bool]:
+    def check_budget(self, provider_id: str) -> tuple[bool, float, bool]:
         """Returns (allowed, remaining_pct, warning)."""
         rule = self.budgets.get(provider_id)
         if not rule:
@@ -350,7 +348,7 @@ class ScoringWeights:
 
 
 # Task fitness lookup (provider -> task_type -> score)
-TASK_FITNESS: Dict[str, Dict[str, float]] = {
+TASK_FITNESS: dict[str, dict[str, float]] = {
     "claude":   {"coding": 0.95, "reasoning": 0.95, "creative": 0.90, "general": 0.90, "rag": 0.90},
     "chatgpt":  {"coding": 0.90, "reasoning": 0.90, "creative": 0.92, "general": 0.90, "rag": 0.88},
     "gemini":   {"coding": 0.80, "reasoning": 0.85, "creative": 0.85, "general": 0.85, "rag": 0.85},
@@ -359,7 +357,7 @@ TASK_FITNESS: Dict[str, Dict[str, float]] = {
     "kimi":     {"coding": 0.65, "reasoning": 0.65, "creative": 0.75, "general": 0.70, "rag": 0.72},
 }
 
-TIER_SCORES: Dict[str, float] = {
+TIER_SCORES: dict[str, float] = {
     "claude": 1.0, "chatgpt": 0.90, "gemini": 0.80,
     "deepseek": 0.70, "glm": 0.40, "kimi": 0.40,
 }
@@ -368,9 +366,9 @@ TIER_SCORES: Dict[str, float] = {
 class AutoScorer:
     """Multi-factor scoring engine inspired by OmniRoute's 16-factor auto-combo."""
 
-    def __init__(self, weights: ScoringWeights = None) -> None:
+    def __init__(self, weights: ScoringWeights | None = None) -> None:
         self.weights = weights or ScoringWeights()
-        self.quality_signals: Dict[str, float] = {}
+        self.quality_signals: dict[str, float] = {}
 
     def score(
         self,
@@ -378,11 +376,11 @@ class AutoScorer:
         breaker: CircuitBreaker,
         quota_mgr: QuotaManager,
         cost_tracker: CostTracker,
-        health_stats: Dict[str, Any],
+        health_stats: dict[str, Any],
         task_type: str = "general",
-    ) -> Tuple[float, Dict[str, float]]:
+    ) -> tuple[float, dict[str, float]]:
         w = self.weights
-        f: Dict[str, float] = {}
+        f: dict[str, float] = {}
 
         # 1. Health (circuit breaker state)
         state_map = {
@@ -478,8 +476,8 @@ class ModalityBridge:
 
     @staticmethod
     def find_capable_provider(
-        available: List[str], modality: Modality
-    ) -> Optional[str]:
+        available: list[str], modality: Modality
+    ) -> str | None:
         cap_set = (
             ModalityBridge.VISION_CAPABLE
             if modality == Modality.VISION
@@ -502,13 +500,13 @@ class DegradationManager:
     """
 
     def __init__(self) -> None:
-        self.features: Dict[str, DegradationLevel] = {}
+        self.features: dict[str, DegradationLevel] = {}
 
     def with_degradation(
         self,
         feature: str,
         primary_fn: Callable,
-        fallback_fn: Callable = None,
+        fallback_fn: Callable | None = None,
         default_value: Any = None,
     ) -> Any:
         try:
@@ -529,7 +527,7 @@ class DegradationManager:
     def level(self, feature: str) -> DegradationLevel:
         return self.features.get(feature, DegradationLevel.DEFAULT)
 
-    def status(self) -> Dict[str, str]:
+    def status(self) -> dict[str, str]:
         return {k: v.value for k, v in self.features.items()}
 
 
@@ -544,7 +542,7 @@ class PipelineStage:
     prompt_template: str = ""
 
 
-PIPELINE_TEMPLATES: Dict[str, List[PipelineStage]] = {
+PIPELINE_TEMPLATES: dict[str, list[PipelineStage]] = {
     "code": [
         PipelineStage(
             "plan", "best",
@@ -611,9 +609,9 @@ class PipelineEngine:
         task_type: str,
         input_text: str,
         call_fn: Callable[[str, str], str],
-        available: List[str],
+        available: list[str],
         context: str = "",
-    ) -> Tuple[str, List[Dict[str, Any]]]:
+    ) -> tuple[str, list[dict[str, Any]]]:
         """
         Execute a multi-stage pipeline.
 
@@ -633,7 +631,7 @@ class PipelineEngine:
         prev = ""
         feedback = ""
         best_output = ""
-        log: List[Dict[str, Any]] = []
+        log: list[dict[str, Any]] = []
 
         for stage in stages:
             idx = tier_idx.get(stage.provider_tier, 0)
@@ -701,12 +699,12 @@ class Router:
     def __init__(
         self,
         strategy: RoutingStrategy = RoutingStrategy.AUTO,
-        weights: ScoringWeights = None,
-        pricing: Dict[str, Tuple[float, float]] = None,
-        budgets: Dict[str, BudgetRule] = None,
+        weights: ScoringWeights | None = None,
+        pricing: dict[str, tuple[float, float]] | None = None,
+        budgets: dict[str, BudgetRule] | None = None,
     ) -> None:
         self.strategy = strategy
-        self.breakers: Dict[str, CircuitBreaker] = {}
+        self.breakers: dict[str, CircuitBreaker] = {}
         self.quota_mgr = QuotaManager()
         self.cost_tracker = CostTracker(pricing=pricing, budgets=budgets)
         self.scorer = AutoScorer(weights)
@@ -716,9 +714,9 @@ class Router:
 
         # per-strategy state
         self._rr_counter = 0
-        self._lkgp: Dict[str, str] = {}
-        self._usage_counts: Dict[str, int] = {}
-        self._provider_weights: Dict[str, float] = {}
+        self._lkgp: dict[str, str] = {}
+        self._usage_counts: dict[str, int] = {}
+        self._provider_weights: dict[str, float] = {}
 
     def get_breaker(self, provider_id: str) -> CircuitBreaker:
         if provider_id not in self.breakers:
@@ -731,8 +729,8 @@ class Router:
 
     def select(
         self,
-        available: List[str],
-        health_stats: Dict[str, Dict[str, Any]] = None,
+        available: list[str],
+        health_stats: dict[str, dict[str, Any]] | None = None,
         task_type: str = "general",
         modality: Modality = Modality.TEXT,
     ) -> Any:
@@ -817,7 +815,7 @@ class Router:
 
     # -- strategy helpers --
 
-    def _weighted(self, candidates: List[str]) -> str:
+    def _weighted(self, candidates: list[str]) -> str:
         weights = [self._provider_weights.get(p, 1.0) for p in candidates]
         total = sum(weights)
         if total <= 0:
@@ -832,8 +830,8 @@ class Router:
 
     def _p2c(
         self,
-        candidates: List[str],
-        health_stats: Dict[str, Dict[str, Any]],
+        candidates: list[str],
+        health_stats: dict[str, dict[str, Any]],
         task_type: str,
     ) -> str:
         pair = (
@@ -851,7 +849,7 @@ class Router:
             scored.append((s, pid))
         return max(scored, key=lambda x: x[0])[1]
 
-    def _lkgp_select(self, candidates: List[str], task_type: str) -> str:
+    def _lkgp_select(self, candidates: list[str], task_type: str) -> str:
         last = self._lkgp.get(task_type)
         if last and last in candidates:
             return last
@@ -859,8 +857,8 @@ class Router:
 
     def _auto(
         self,
-        candidates: List[str],
-        health_stats: Dict[str, Dict[str, Any]],
+        candidates: list[str],
+        health_stats: dict[str, dict[str, Any]],
         task_type: str,
     ) -> str:
         scored = []
@@ -893,8 +891,8 @@ class Router:
     def record_failure(
         self,
         provider_id: str,
-        error_code: int = None,
-        retry_after_s: float = None,
+        error_code: int | None = None,
+        retry_after_s: float | None = None,
     ) -> None:
         # auth/permission failures trip breaker immediately
         immediate = error_code in (401, 403)
@@ -911,15 +909,15 @@ class Router:
         task_type: str,
         input_text: str,
         call_fn: Callable[[str, str], str],
-        available: List[str],
+        available: list[str],
         context: str = "",
-    ) -> Tuple[str, List[Dict[str, Any]]]:
+    ) -> tuple[str, list[dict[str, Any]]]:
         return self.pipeline.run(task_type, input_text, call_fn, available, context)
 
     # -- status --
 
-    def status(self) -> Dict[str, Any]:
-        report: Dict[str, Any] = {}
+    def status(self) -> dict[str, Any]:
+        report: dict[str, Any] = {}
         all_ids = set(self.breakers.keys()) | set(self.cost_tracker.entries.keys())
         for pid in sorted(all_ids):
             breaker = self.get_breaker(pid)
@@ -942,7 +940,7 @@ class Router:
             "degradation": self.degradation.status(),
         }
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Full serializable snapshot for persistence or GUI."""
         return {
             "strategy": self.strategy.value,

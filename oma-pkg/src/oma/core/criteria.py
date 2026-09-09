@@ -11,9 +11,10 @@ The engine:
 This replaces vague "is it done?" checks with explicit pass/fail gates.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
 from enum import Enum
+from typing import Any
 
 
 class CriterionType(Enum):
@@ -32,7 +33,7 @@ class Criterion:
     ctype: CriterionType
     weight: float = 1.0                          # importance multiplier
     target: Any = None                           # what to check against
-    eval_fn: Optional[Callable] = None           # for CUSTOM type
+    eval_fn: Callable | None = None           # for CUSTOM type
     required: bool = False                       # hard gate: fail = 0 overall
 
     def evaluate(self, output: Any) -> float:

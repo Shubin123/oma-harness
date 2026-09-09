@@ -28,12 +28,28 @@ pip install oma-harness[all]     # everything
 npm install oma-harness
 ```
 
-### macOS binary
+### Standalone binaries
+
+Download the binary for your platform from the
+[latest release](https://github.com/Shubin123/oma-harness/releases/latest) --
+macOS (arm64/x64), Linux (x64) and Windows (x64) are built from every tag, with
+a `SHA256SUMS` file to check them against.
 
 ```bash
-cd oma-pkg
-./build_macos.sh
-# produces dist/oma -- a standalone binary
+# macOS / Linux
+tar -xzf oma-macos-arm64.tar.gz && chmod +x oma-macos-arm64 && ./oma-macos-arm64 --help
+```
+
+```powershell
+# Windows
+Expand-Archive oma-windows-x64.zip -DestinationPath . ; .\oma-windows-x64.exe --help
+```
+
+Or build them yourself -- one command, same on every platform:
+
+```bash
+python tools/build.py            # both binaries into dist/
+python tools/build.py --help     # targets, cleaning, wheel building
 ```
 
 ## Quick start
@@ -189,7 +205,7 @@ Strips provider fingerprints so output is provider-neutral: attribution patterns
 
 ### Automation layers
 
-- **Pixel**: framebuffer capture, click, type, key combos. Platform-aware (macOS/Linux/Windows). Delegates to MCP computer tools when available.
+- **Pixel**: framebuffer capture, click, type, key combos. macOS uses `screencapture` and `cliclick`, Linux `grim` and `xdotool`, Windows calls user32/gdi32 through `ctypes` (no PowerShell, which Defender's AMSI blocks for screen capture, and no extra packages). Delegates to MCP computer tools when available.
 - **Page**: SPA-aware with mutation observer injection, configurable scroll strategies (full page, infinite, paginated), CSS selector targeting, deduplication.
 - **Memory**: working memory (in-session, LRU-evicted, tag-searchable), persistent memory (JSON per task, survives across sessions), context optimizer (packs important context into the provider's token budget).
 
@@ -225,7 +241,7 @@ oma web [--port 8384]        Launch web dashboard
 
 ## Credential storage and security
 
-Credentials are encrypted at rest using PBKDF2-HMAC-SHA256 (100k iterations) with a hardware-derived machine key, stored in `~/.oma/credentials.json` with `0600` permissions. Writes are atomic (temp file + rename) to prevent corruption under concurrent access. Both API keys and browser session cookies/tokens are supported with auto-detection.
+Credentials are encrypted at rest using PBKDF2-HMAC-SHA256 (100k iterations) with a hardware-derived machine key, stored in `~/.oma/credentials.json` restricted to the owner: mode `0600` on macOS and Linux, and an `icacls` ACL naming only your account (plus the system principals, the equivalent of root's access to a `0600` file) on Windows. Writes are atomic (temp file + rename) to prevent corruption under concurrent access. Both API keys and browser session cookies/tokens are supported with auto-detection.
 
 See [STORAGE_AND_SECURITY.md](STORAGE_AND_SECURITY.md) for the full architecture, inspection commands, and flushing procedures.
 
@@ -249,10 +265,15 @@ oma/                         # reference implementation (standalone Python)
     page.py                  # SPA scroll + observe + extract
     memory.py                # working + persistent memory
 
+tools/                       # cross-platform build driver
+  build.py                   # builds binaries, archives, checksums
+  build.mjs                  # node wrapper so npm scripts find Python
+
 oma-pkg/                     # distributable Python package
   pyproject.toml             # hatchling build config
-  build_macos.sh             # macOS binary builder
+  oma.spec                   # PyInstaller spec
   src/oma/                   # package source
+    platform_compat.py       # machine id + owner-only files (POSIX and Windows)
     agent.py                 # OMA orchestrator (enhanced)
     cli.py                   # CLI entry point
     gui/
@@ -278,6 +299,32 @@ oma-ts/                      # TypeScript implementation
       web.ts                 # web dashboard
 ```
 
+## Building
+
+`tools/build.py` is the only build implementation: the Makefile, the npm
+scripts and CI all call it, so a local build and a release build take the same
+steps. It needs Python 3.10+ and, for the Node binary, Node 20+.
+
+```bash
+python tools/build.py                 # Python and Node binaries for this platform
+python tools/build.py --target python # one runtime only
+python tools/build.py --wheel         # also build the wheel and sdist
+python tools/build.py --clean         # ignore the build cache
+python tools/build.py --skip-tests    # skip the pre-build test run
+```
+
+Artifacts land in `dist/`: the binaries, one archive each (`.tar.gz` on Unix,
+`.zip` on Windows), and `SHA256SUMS`. Repeat builds reuse the cache in
+`.build_cache/` and skip work whose inputs have not changed.
+
+On macOS and Linux the Makefile wraps the same commands (`make build`,
+`make test`, `make lint`). Windows has no make by default, so call the script
+directly.
+
+Releases are cut by pushing a tag: `git tag v0.2.0 && git push origin v0.2.0`.
+The release workflow builds on macOS arm64, macOS x64, Linux x64 and Windows
+x64, then publishes the archives and checksums to a GitHub release.
+
 ## Testing
 
 ```bash
@@ -299,7 +346,7 @@ pytest -m live          # hits real provider endpoints (needs keys)
 
 ## Development
 
-Requirements: Python >= 3.10, Node.js >= 18 (for the TypeScript implementation).
+Requirements: Python >= 3.10, Node.js >= 20 (for the TypeScript implementation and its binary). Supported on macOS, Linux and Windows.
 
 ```bash
 # Python
