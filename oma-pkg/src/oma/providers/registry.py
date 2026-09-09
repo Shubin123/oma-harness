@@ -158,16 +158,16 @@ class ProviderRegistry:
         Expects OMA_*_KEY variables, and optionally checks standard env vars.
         """
         from .auth import clean_token, detect_auth_type
+        from .catalog import CATALOG
 
         reg = ProviderRegistry()
+        # Every catalog entry declares its own OMA_*_KEY, so a new provider
+        # becomes discoverable by being added to the catalog.
         oma_map = {
-            "claude":   "OMA_CLAUDE_KEY",
-            "gemini":   "OMA_GEMINI_KEY",
-            "chatgpt":  "OMA_OPENAI_KEY",
-            "deepseek": "OMA_DEEPSEEK_KEY",
-            "glm":      "OMA_GLM_KEY",
-            "kimi":     "OMA_KIMI_KEY",
+            entry.id: entry.key_env for entry in CATALOG.values() if entry.key_env
         }
+        # Providers that predate OMA have a conventional variable of their own,
+        # which is worth honouring when the caller opts in.
         std_map = {
             "claude":   ["ANTHROPIC_API_KEY", "CLAUDE_API_KEY"],
             "gemini":   ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
@@ -175,6 +175,20 @@ class ProviderRegistry:
             "deepseek": ["DEEPSEEK_API_KEY"],
             "glm":      ["GLM_API_KEY", "ZHIPU_API_KEY"],
             "kimi":     ["KIMI_API_KEY", "MOONSHOT_API_KEY"],
+            "groq":     ["GROQ_API_KEY"],
+            "cerebras": ["CEREBRAS_API_KEY"],
+            "mistral":  ["MISTRAL_API_KEY"],
+            "cohere":   ["COHERE_API_KEY"],
+            "together": ["TOGETHER_API_KEY"],
+            "openrouter": ["OPENROUTER_API_KEY"],
+            "github":   ["GITHUB_TOKEN", "GITHUB_MODELS_TOKEN"],
+            "huggingface": ["HF_TOKEN", "HUGGINGFACE_API_KEY"],
+            "nvidia":   ["NVIDIA_API_KEY"],
+            "sambanova": ["SAMBANOVA_API_KEY"],
+            "hyperbolic": ["HYPERBOLIC_API_KEY"],
+            "deepinfra": ["DEEPINFRA_API_KEY"],
+            "nebius":   ["NEBIUS_API_KEY"],
+            "cloudflare": ["CLOUDFLARE_API_TOKEN"],
         }
 
         for name, env_var in oma_map.items():
