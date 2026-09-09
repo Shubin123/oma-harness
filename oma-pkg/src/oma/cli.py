@@ -11,8 +11,9 @@ Usage:
 
 import argparse
 import json
-import os
 import sys
+
+from oma import platform_compat
 
 
 def cmd_run(args):
@@ -36,11 +37,11 @@ def cmd_run(args):
     print(f"Tokens used: {result.tokens_used}")
 
     if result.artifacts.get("final"):
-        print(f"\n--- Result ---")
+        print("\n--- Result ---")
         print(result.artifacts["final"])
 
     if result.context_for_next:
-        print(f"\n--- Handoff ---")
+        print("\n--- Handoff ---")
         print(result.context_for_next)
 
 
@@ -160,8 +161,10 @@ def cmd_auth(args):
         print(f"  File Exists:         {info['file_exists']}")
         if info['file_exists']:
             print(f"  File Size:           {info['size_bytes']} bytes")
-            print(f"  File Mode:           {info['file_permissions']} (owner-only: rw-------)")
-            print(f"  Directory Mode:      {info['dir_permissions']} (owner-only: rwx------)")
+            file_note = "" if platform_compat.IS_WINDOWS else " (owner-only: rw-------)"
+            dir_note = "" if platform_compat.IS_WINDOWS else " (owner-only: rwx------)"
+            print(f"  File Mode:           {info['file_permissions']}{file_note}")
+            print(f"  Directory Mode:      {info['dir_permissions']}{dir_note}")
         print(f"  Encryption:          {info['encryption']}")
         print(f"  Stored Providers:    {info['provider_count']}")
         for p, pinfo in info.get("providers", {}).items():
@@ -173,7 +176,11 @@ def cmd_auth(args):
         print("  - Single provider:   oma auth remove <provider>")
         print("  - All credentials:   oma auth flush --all")
         print("  - All + Task memory: oma auth flush --all --include-memory")
-        print("  - Manual purge:      rm -f ~/.oma/credentials.json && rm -rf .oma_memory/")
+        if platform_compat.IS_WINDOWS:
+            print(f"  - Manual purge:      del \"{info['credentials_file']}\" "
+                  "&& rmdir /s /q .oma_memory")
+        else:
+            print("  - Manual purge:      rm -f ~/.oma/credentials.json && rm -rf .oma_memory/")
 
 
 def cmd_memory(args):
@@ -280,7 +287,8 @@ def main():
     p_auth_flush = auth_sub.add_parser("flush", help="Securely wipe and flush credentials from disk")
     p_auth_flush.add_argument("--all", dest="flush_all", action="store_true", help="Flush all stored credentials")
     p_auth_flush.add_argument("--provider", help="Flush a specific provider credential", default=None)
-    p_auth_flush.add_argument("--include-memory", action="store_true", help="Also wipe task persistent memory (.oma_memory)")
+    p_auth_flush.add_argument("--include-memory", action="store_true",
+                              help="Also wipe task persistent memory (.oma_memory)")
     p_auth_flush.add_argument("--memory-dir", default=".oma_memory", help="Persistent memory directory")
     p_auth_flush.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompt")
 

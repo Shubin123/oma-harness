@@ -32,11 +32,10 @@ from __future__ import annotations
 import json
 import os
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any
 
 DEFAULT_BASE_URL = "http://localhost:20128"
 OPENAI_V1 = "/v1"
@@ -72,7 +71,7 @@ class OmniRouteConfig:
     temperature: float = 0.7
     max_tokens: int = 4096
     # Pass-through headers for OmniRoute features
-    extra_headers: Dict[str, str] = field(default_factory=dict)
+    extra_headers: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -89,7 +88,7 @@ class BridgeResponse:
     cost: float = 0.0
     error: str = ""
     error_code: int = 0
-    raw: Dict[str, Any] = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 class OmniRouteBridge:
@@ -101,14 +100,14 @@ class OmniRouteBridge:
     and extracts routing metadata from the response headers.
     """
 
-    def __init__(self, config: OmniRouteConfig = None) -> None:
+    def __init__(self, config: OmniRouteConfig | None = None) -> None:
         self.config = config or OmniRouteConfig()
         if not self.config.base_url:
             self.config.base_url = os.environ.get(
                 "OMNIROUTE_URL", DEFAULT_BASE_URL
             )
-        self._available: Optional[bool] = None
-        self._models_cache: Optional[List[str]] = None
+        self._available: bool | None = None
+        self._models_cache: list[str] | None = None
         self._models_cache_time: float = 0.0
 
     @property
@@ -129,11 +128,11 @@ class OmniRouteBridge:
             req = urllib.request.Request(url, method="GET")
             req.add_header("Content-Type", "application/json")
             with urllib.request.urlopen(req, timeout=5) as resp:
-                return resp.status == 200
+                return bool(resp.status == 200)
         except Exception:
             return False
 
-    def list_models(self, force_refresh: bool = False) -> List[str]:
+    def list_models(self, force_refresh: bool = False) -> list[str]:
         """Fetch available models from OmniRoute's catalog."""
         now = time.time()
         if (
@@ -158,11 +157,11 @@ class OmniRouteBridge:
 
     def chat_completion(
         self,
-        messages: List[Dict[str, str]],
-        model: str = None,
+        messages: list[dict[str, str]],
+        model: str | None = None,
         system: str = "",
-        temperature: float = None,
-        max_tokens: int = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> BridgeResponse:
         """
         Send a chat completion request through OmniRoute.
@@ -260,7 +259,7 @@ class OmniRouteBridge:
             return self.config.auto_model
         return PROVIDER_MODEL_MAP.get(oma_provider, f"{oma_provider}/default")
 
-    def status(self) -> Dict[str, Any]:
+    def status(self) -> dict[str, Any]:
         """Get OmniRoute gateway status."""
         result = {
             "available": self.available,
@@ -278,7 +277,7 @@ class OmniRouteBridge:
 
         return result
 
-    def get_analytics(self) -> Dict[str, Any]:
+    def get_analytics(self) -> dict[str, Any]:
         """
         Fetch analytics/telemetry from OmniRoute's dashboard API.
         Returns usage stats, cost breakdown, and provider health.
@@ -290,6 +289,7 @@ class OmniRouteBridge:
             url = f"{self.config.base_url}/api/analytics"
             req = urllib.request.Request(url, method="GET")
             with urllib.request.urlopen(req, timeout=10) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+                analytics: dict[str, Any] = json.loads(resp.read().decode("utf-8"))
+            return analytics
         except Exception as e:
             return {"error": str(e)}

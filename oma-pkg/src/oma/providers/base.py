@@ -15,8 +15,8 @@ No provider gets special treatment. The loop picks them by availability and cost
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
 from enum import Enum
+from typing import Any
 
 
 class ErrorClass(Enum):
@@ -35,8 +35,8 @@ class ProviderResponse:
     provider: str
     latency_ms: float
     raw: Any = None               # provider-specific payload
-    error: Optional[str] = None
-    error_class: Optional[ErrorClass] = None
+    error: str | None = None
+    error_class: ErrorClass | None = None
 
     @property
     def tokens_total(self) -> int:
@@ -89,7 +89,7 @@ class Provider(ABC):
     TIMEOUT_MAX: float = 600.0       # 10 min ceiling
     TIMEOUT_BACKOFF: float = 1.5     # multiply on timeout
 
-    def __init__(self, api_key: Optional[str] = None, **kwargs):
+    def __init__(self, api_key: str | None = None, **kwargs):
         self.api_key = api_key
         self.rate_limiter = RateLimiter()
         self.config = kwargs
@@ -115,7 +115,7 @@ class Provider(ABC):
     def complete(
         self,
         messages: list[dict],
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.3,
         **kwargs,

@@ -8,32 +8,29 @@ can spin up and operate without exceptions.
 
 import http.server
 import json
-import os
 import subprocess
 import sys
 import threading
-import time
-from pathlib import Path
 
 import pytest
 
-from oma.agent import OMA
 from oma.gui.web import DashboardHandler
 from oma.providers.auth import (
     AuthManager,
     Credential,
     CredentialStore,
-    clean_token,
-    detect_auth_type,
 )
 from oma.providers.base import ErrorClass
-from oma.providers.http_providers import PROVIDER_CONFIGS, HTTPProvider
-from oma.providers.registry import ProviderRegistry, _make_http_provider, _make_subscription_provider
+from oma.providers.registry import (
+    ProviderRegistry,
+    _make_http_provider,
+)
 from oma.providers.subscription import (
     ChatGPTSubscriptionProvider,
     ClaudeSubscriptionProvider,
     GeminiSubscriptionProvider,
 )
+from tests.conftest import assert_owner_only
 
 pytestmark = pytest.mark.smoke
 
@@ -82,9 +79,8 @@ class TestSecuritySmoke:
         assert "sk-deepseek-smoke" not in raw_text
 
         # Verify permissions
-        file_stat = cred_path.stat()
-        assert oct(file_stat.st_mode)[-3:] == "600"
-        assert oct(cred_path.parent.stat().st_mode)[-3:] == "700"
+        assert_owner_only(cred_path)
+        assert_owner_only(cred_path.parent)
 
         # Verify decryption
         new_store = CredentialStore(path=cred_path)

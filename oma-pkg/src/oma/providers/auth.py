@@ -30,6 +30,15 @@ from enum import Enum
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+from ..platform_compat import (
+    describe_permissions,
+    make_private_dir,
+    restrict_to_owner,
+)
+from ..platform_compat import (
+    machine_id as _machine_id,
+)
+
 
 class AuthStatus(Enum):
     LOGGED_OUT = "logged_out"
@@ -67,7 +76,7 @@ class Credential:
 
 # ---- provider login configs ----
 
-PROVIDER_AUTH = {
+PROVIDER_AUTH: dict[str, dict[str, str | None]] = {
     "claude": {
         "name": "Claude",
         "login_url": "https://claude.ai/login",
@@ -199,7 +208,7 @@ class CredentialStore:
 
     def __init__(self, path: Path | None = None):
         self._path = path or Path.home() / ".oma" / "credentials.json"
-        self._path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+        make_private_dir(self._path.parent)
         self._restrict_permissions()
         self._key = self._derive_key()
         self._creds: dict[str, Credential] = {}
@@ -207,38 +216,8 @@ class CredentialStore:
 
     def _derive_key(self) -> bytes:
         """Derive an encryption key from machine-specific data."""
-        # use a stable machine identifier
-        machine_id = ""
-        for path in ["/etc/machine-id", "/var/lib/dbus/machine-id"]:
-            try:
-                with open(path) as f:
-                    machine_id = f.read().strip()
-                    break
-            except OSError:
-                continue
-
-        if not machine_id:
-            # macOS: use hardware UUID
-            try:
-                import subprocess
-                result = subprocess.run(
-                    ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
-                    capture_output=True, text=True, timeout=5
-                )
-                for line in result.stdout.split("\n"):
-                    if "IOPlatformUUID" in line:
-                        machine_id = line.split('"')[-2]
-                        break
-            except (OSError, subprocess.TimeoutExpired, IndexError):
-                pass
-
-        if not machine_id:
-            # fallback: use hostname + username
-            import getpass
-            machine_id = f"{os.uname().nodename}:{getpass.getuser()}"
-
         return hashlib.pbkdf2_hmac(
-            "sha256", machine_id.encode(), b"oma-credential-store", 100_000
+            "sha256", _machine_id().encode(), b"oma-credential-store", 100_000
         )
 
     def _encrypt(self, data: str) -> str:
@@ -269,17 +248,13 @@ class CredentialStore:
 
     def _restrict_permissions(self):
         """Keep the store owner-only, including files an older version left at 0644."""
-        for target, mode in ((self._path.parent, 0o700), (self._path, 0o600)):
-            try:
-                if target.exists():
-                    os.chmod(target, mode)
-            except OSError:
-                pass
+        restrict_to_owner(self._path.parent)
+        restrict_to_owner(self._path)
 
     def _save(self):
         raw = {k: v.to_dict() for k, v in self._creds.items()}
         encrypted = self._encrypt(json.dumps(raw))
-        self._path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+        make_private_dir(self._path.parent)
         # The XOR key is derived from the machine's hardware UUID, which any
         # local user can read, so the file mode is what actually keeps these
         # tokens private. Write through a 0600 temp file and rename, so the
@@ -290,7 +265,7 @@ class CredentialStore:
         try:
             with os.fdopen(fd, "w") as f:  # takes ownership of fd
                 json.dump({"data": encrypted, "v": 1}, f)
-            os.chmod(tmp, 0o600)  # mkstemp already does this; make it explicit
+            restrict_to_owner(tmp)  # mkstemp is 0600 on POSIX; Windows needs the ACL
             os.replace(tmp, self._path)
         except BaseException:
             try:
@@ -358,8 +333,8 @@ class CredentialStore:
         """
         exists = self._path.exists()
         size_bytes = self._path.stat().st_size if exists else 0
-        file_mode = oct(self._path.stat().st_mode & 0o777) if exists else None
-        dir_mode = oct(self._path.parent.stat().st_mode & 0o777) if self._path.parent.exists() else None
+        file_mode = describe_permissions(self._path)
+        dir_mode = describe_permissions(self._path.parent)
 
         stored = {}
         for name, cred in self._creds.items():
@@ -428,7 +403,7 @@ class AuthCallbackServer(BaseHTTPRequestHandler):
     to localhost with the session token/cookie. This server captures it.
     """
 
-    callback_data = {}
+    callback_data: dict[str, str] = {}
     callback_event = threading.Event()
 
     def log_message(self, *args):
@@ -498,7 +473,7 @@ class AuthManager:
     def __init__(self, store: CredentialStore | None = None):
         self.store = store or CredentialStore()
         self._callback_port = 18923
-        self._login_server = None
+        self._login_server: HTTPServer | None = None
         self._on_status_change: Callable | None = None
 
     def set_status_callback(self, fn: Callable):
@@ -550,7 +525,10 @@ class AuthManager:
         else:
             self.store_api_key(provider=provider, api_key=cleaned)
 
-        return self.store.get(provider)
+        stored = self.store.get(provider)
+        if stored is None:  # only if the store was flushed mid-call
+            raise RuntimeError(f"credential for {provider} vanished before it could be read")
+        return stored
 
     def store_api_key(self, provider: str, api_key: str):
         """Store an API key directly (fallback for users who prefer API keys)."""
@@ -564,7 +542,7 @@ class AuthManager:
 
     def store_session_token(
         self, provider: str, token: str,
-        email: str = None, plan: str = None,
+        email: str | None = None, plan: str | None = None,
         auth_type: str = "cookie",
     ):
         """Store a session token/cookie captured from browser login."""
@@ -611,7 +589,7 @@ class AuthManager:
             daemon=True,
         ).start()
 
-        return config["login_url"]
+        return config["login_url"] or ""
 
     def _run_login_flow(self, provider: str):
         """Background thread: start callback server and wait for credentials."""
@@ -628,8 +606,8 @@ class AuthManager:
                 server.handle_request()
 
             data = AuthCallbackServer.callback_data
-            if data.get("token") or data.get("cookie") or data.get("api_key"):
-                token = data.get("token") or data.get("cookie") or data.get("api_key")
+            token = data.get("token") or data.get("cookie") or data.get("api_key")
+            if token:
                 auth_type = "api_key" if data.get("api_key") else "cookie"
                 self.store_session_token(
                     provider=provider,

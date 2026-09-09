@@ -11,13 +11,13 @@ Memory management for multi-agent runs:
 The memory layer answers: "what does the next worker need to know?"
 """
 
-import hashlib
 import json
-import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
+
+from ..platform_compat import make_private_dir, restrict_to_owner
 
 
 @dataclass
@@ -55,7 +55,7 @@ class WorkingMemory:
         self.max_entries = max_entries
         self.max_tokens = max_tokens
 
-    def put(self, key: str, value: Any, tags: list = None,
+    def put(self, key: str, value: Any, tags: list | None = None,
             ttl_s: float = 0.0, source: str = "") -> None:
         self._store[key] = MemoryEntry(
             key=key, value=value, tags=tags or [],
@@ -63,7 +63,7 @@ class WorkingMemory:
         )
         self._evict_if_needed()
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         entry = self._store.get(key)
         if entry is None:
             return None
@@ -140,12 +140,7 @@ class PersistentMemory:
     """
 
     def __init__(self, base_dir: str = ".oma_memory"):
-        self.base = Path(base_dir)
-        self.base.mkdir(parents=True, exist_ok=True, mode=0o700)
-        try:
-            os.chmod(self.base, 0o700)
-        except OSError:
-            pass
+        self.base = make_private_dir(base_dir)
 
     def _path(self, task_id: str) -> Path:
         return self.base / f"{task_id}.json"
@@ -153,17 +148,15 @@ class PersistentMemory:
     def load(self, task_id: str) -> dict:
         path = self._path(task_id)
         if path.exists():
-            return json.loads(path.read_text())
+            stored: dict = json.loads(path.read_text())
+            return stored
         return {"entries": {}, "handoffs": [], "created_at": time.time()}
 
     def save(self, task_id: str, data: dict) -> None:
         data["updated_at"] = time.time()
         p = self._path(task_id)
         p.write_text(json.dumps(data, indent=2, default=str))
-        try:
-            os.chmod(p, 0o600)
-        except OSError:
-            pass
+        restrict_to_owner(p)
 
     def append_handoff(self, task_id: str, handoff_summary: str,
                        worker_id: str = "") -> None:
@@ -233,8 +226,8 @@ class ContextOptimizer:
         system: str,
         task_state: dict,
         working: WorkingMemory,
-        persistent: Optional[dict] = None,
-        history: Optional[list] = None,
+        persistent: dict | None = None,
+        history: list | None = None,
     ) -> tuple[str, list[dict]]:
         """
         Build (system_prompt, messages) that fit within token budget.
@@ -264,7 +257,7 @@ class ContextOptimizer:
             used += len(handoff_text) // 4
 
         # conversation history: fit what we can, newest first
-        messages = []
+        messages: list[dict] = []
         if history:
             for msg in reversed(history):
                 msg_tokens = len(json.dumps(msg)) // 4

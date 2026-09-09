@@ -16,7 +16,6 @@ Two edge cases, two strategies:
 import json
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
 
 
 @dataclass
@@ -57,7 +56,7 @@ class HandoffNote:
         """
         sections = []
 
-        sections.append(f"=== OMA HANDOFF NOTE ===")
+        sections.append("=== OMA HANDOFF NOTE ===")
         sections.append(f"task: {self.task_id}")
         sections.append(f"objective: {self.objective}")
         sections.append(f"status: {self.status} ({self.reason})")
@@ -65,53 +64,53 @@ class HandoffNote:
         sections.append(f"time: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(self.timestamp))}")
 
         if self.critical_context:
-            sections.append(f"\n--- GRAB THIS FIRST ---")
+            sections.append("\n--- GRAB THIS FIRST ---")
             sections.append(self.critical_context)
 
         if self.completed_steps:
-            sections.append(f"\n--- COMPLETED ---")
+            sections.append("\n--- COMPLETED ---")
             for i, step in enumerate(self.completed_steps, 1):
                 sections.append(f"  {i}. {step}")
 
         if self.remaining_steps:
-            sections.append(f"\n--- REMAINING (do these) ---")
+            sections.append("\n--- REMAINING (do these) ---")
             for i, step in enumerate(self.remaining_steps, 1):
                 sections.append(f"  {i}. {step}")
 
         if self.priority_order:
-            sections.append(f"\n--- PRIORITY ORDER (most important first) ---")
+            sections.append("\n--- PRIORITY ORDER (most important first) ---")
             for i, feat in enumerate(self.priority_order, 1):
                 sections.append(f"  {i}. {feat}")
 
         if self.patches_to_apply:
-            sections.append(f"\n--- PATCHES TO APPLY ---")
+            sections.append("\n--- PATCHES TO APPLY ---")
             for patch in self.patches_to_apply:
                 sections.append(f"  - {patch}")
 
         if self.binary_target:
-            sections.append(f"\n--- BUILD TARGET ---")
+            sections.append("\n--- BUILD TARGET ---")
             sections.append(f"  {self.binary_target}")
 
         if self.blockers:
-            sections.append(f"\n--- BLOCKERS ---")
+            sections.append("\n--- BLOCKERS ---")
             for b in self.blockers:
                 sections.append(f"  ! {b}")
 
         if self.artifacts_produced:
-            sections.append(f"\n--- ARTIFACTS ---")
+            sections.append("\n--- ARTIFACTS ---")
             for name, path in self.artifacts_produced.items():
                 sections.append(f"  {name}: {path}")
 
         if self.criteria:
-            sections.append(f"\n--- SUCCESS CRITERIA ---")
+            sections.append("\n--- SUCCESS CRITERIA ---")
             sections.append(f"  {json.dumps(self.criteria, indent=2, default=str)}")
 
         if self.provider_status:
-            sections.append(f"\n--- PROVIDER STATUS ---")
+            sections.append("\n--- PROVIDER STATUS ---")
             for name, status in self.provider_status.items():
                 sections.append(f"  {name}: {status}")
 
-        sections.append(f"\n=== END HANDOFF ===")
+        sections.append("\n=== END HANDOFF ===")
         return "\n".join(sections)
 
     def to_dict(self) -> dict:
@@ -137,7 +136,7 @@ def near_outage_handler(
     task_state,
     working_memory,
     remaining_features: list,
-    patches: list = None,
+    patches: list | None = None,
 ) -> HandoffNote:
     """
     Called when tokens are running low but we can still write.
@@ -183,17 +182,17 @@ def outage_recovery_prompt(
     base = handoff_note.to_prompt()
 
     recovery = [
-        f"\n=== RECOVERY INSTRUCTIONS ===",
-        f"From a fork of open-multi-agent, consider these patches",
+        "\n=== RECOVERY INSTRUCTIONS ===",
+        "From a fork of open-multi-agent, consider these patches",
         f"and create a working binary for {target_platform} on this computer",
-        f"in order to complete the functionalities listed from most",
-        f"important to least, checking off as many as possible.",
+        "in order to complete the functionalities listed from most",
+        "important to least, checking off as many as possible.",
     ]
 
     if fork_repo:
         recovery.append(f"\nFork: {fork_repo}")
 
-    recovery.append(f"\nFunctionalities (priority order):")
+    recovery.append("\nFunctionalities (priority order):")
     for i, feat in enumerate(handoff_note.priority_order, 1):
         recovery.append(f"  [ ] {i}. {feat}")
 

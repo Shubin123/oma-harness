@@ -2428,7 +2428,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             edges = body.get("edges", [])
             if not hasattr(DashboardHandler, '_workflows'):
                 DashboardHandler._workflows = {}
-            import hashlib, time
+            import hashlib
+            import time
             wf_id = hashlib.md5(f"{name}{time.time()}".encode()).hexdigest()[:12]
             DashboardHandler._workflows[wf_id] = {
                 "id": wf_id,
@@ -2455,9 +2456,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 # topological sort for execution order
                 adj = {n["id"]: [] for n in nodes}
                 in_deg = {n["id"]: 0 for n in nodes}
-                for e in edges:
-                    adj[e["from"]].append(e["to"])
-                    in_deg[e["to"]] = in_deg.get(e["to"], 0) + 1
+                for edge in edges:
+                    adj[edge["from"]].append(edge["to"])
+                    in_deg[edge["to"]] = in_deg.get(edge["to"], 0) + 1
                 queue = [nid for nid, d in in_deg.items() if d == 0]
                 order = []
                 while queue:
@@ -2477,9 +2478,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         continue
                     # gather parent outputs
                     parent_outputs = []
-                    for e in edges:
-                        if e["to"] == nid and e["from"] in results:
-                            parent_outputs.append(results[e["from"]])
+                    for edge in edges:
+                        if edge["to"] == nid and edge["from"] in results:
+                            parent_outputs.append(results[edge["from"]])
                     # execute agent/ralph nodes via the harness
                     if ntype in ("agent", "sub_agent", "ralph"):
                         objective = node.get("system") or node.get("name", "task")
@@ -2516,6 +2517,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         """
         import urllib.error
         import urllib.request
+
         from oma.providers.auth import clean_token
 
         token = clean_token(provider, token)
@@ -2594,7 +2596,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if code == 401 or code == 403:
                 return False, f"Authentication failed (HTTP {code}) -- token is invalid or expired"
             return False, f"HTTP error {code} -- check token and try again"
-        except urllib.error.URLError as e:
+        except urllib.error.URLError:
             return False, f"Could not reach {provider} servers -- check your network"
         except Exception as e:
             return False, f"Verification error: {str(e)[:200]}"

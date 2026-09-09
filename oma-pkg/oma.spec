@@ -9,6 +9,17 @@ import os
 import sys
 
 IS_MACOS = sys.platform == "darwin"
+IS_WINDOWS = os.name == "nt"
+
+# `strip` is a binutils tool: it exists on Linux, is absent on Windows (where
+# PyInstaller then logs a traceback per collected binary), and mangles Mach-O
+# load commands on macOS, after which install_name_tool fails with
+# "malformed object".
+STRIP = not IS_MACOS and not IS_WINDOWS
+
+# UPX corrupts macOS binaries and invalidates the ad-hoc signature, and packed
+# executables trip antivirus heuristics on Windows. Opt in explicitly.
+USE_UPX = os.environ.get("OMA_USE_UPX") == "1"
 
 # 'universal2' needs a universal2 CPython (python.org build); default to the host arch.
 TARGET_ARCH = os.environ.get("OMA_TARGET_ARCH") or None
@@ -93,11 +104,8 @@ exe = EXE(
     name='oma',
     debug=False,
     bootloader_ignore_signals=False,
-    # `strip` mangles Mach-O load commands, after which PyInstaller's own
-    # install_name_tool pass fails with "malformed object". Never strip on macOS.
-    strip=not IS_MACOS,
-    # UPX corrupts macOS binaries and invalidates the ad-hoc signature.
-    upx=not IS_MACOS,
+    strip=STRIP,
+    upx=USE_UPX,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=True,

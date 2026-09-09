@@ -12,6 +12,7 @@
  */
 
 import fs from 'node:fs';
+import { makePrivateDir, restrictToOwner } from '../platformCompat.js';
 import path from 'node:path';
 
 export interface MemoryEntry {
@@ -163,11 +164,7 @@ export class PersistentMemory {
   private base: string;
 
   constructor(baseDir = '.oma_memory') {
-    this.base = baseDir;
-    fs.mkdirSync(this.base, { recursive: true, mode: 0o700 });
-    try {
-      fs.chmodSync(this.base, 0o700);
-    } catch { /* ignore */ }
+    this.base = makePrivateDir(baseDir);
   }
 
   private _path(taskId: string): string {
@@ -192,9 +189,7 @@ export class PersistentMemory {
       JSON.stringify(data, null, 2),
       { mode: 0o600 },
     );
-    try {
-      fs.chmodSync(p, 0o600);
-    } catch { /* ignore */ }
+    restrictToOwner(p);
   }
 
   appendHandoff(taskId: string, handoffSummary: string, workerId = ''): void {

@@ -14,10 +14,12 @@ using their public HTTP APIs directly.
 
 import json
 import time
-import urllib.request
 import urllib.error
-from typing import Any, Callable, Optional
-from .base import Provider, ProviderResponse, ErrorClass, RateLimiter
+import urllib.request
+from collections.abc import Callable
+from typing import Any, TypedDict
+
+from .base import Provider, ProviderResponse
 
 
 class HTTPProvider(Provider):
@@ -45,7 +47,7 @@ class HTTPProvider(Provider):
     def complete(
         self,
         messages: list[dict],
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.3,
         **kwargs,
@@ -234,7 +236,17 @@ def _deepseek_parse(raw):
 
 # GLM (Zhipu) and Kimi (Moonshot) also use OpenAI-compatible APIs
 
-PROVIDER_CONFIGS = {
+class ProviderConfig(TypedDict):
+    """Everything needed to talk to one provider over raw HTTP."""
+
+    endpoint: str
+    default_model: str
+    headers_fn: Callable[..., Any]
+    body_fn: Callable[..., Any]
+    parse_fn: Callable[..., Any]
+
+
+PROVIDER_CONFIGS: dict[str, ProviderConfig] = {
     "claude": {
         "endpoint": "https://api.anthropic.com/v1/messages",
         "default_model": "claude-sonnet-4-20250514",

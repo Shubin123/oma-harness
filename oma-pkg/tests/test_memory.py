@@ -1,9 +1,10 @@
 """Tests for the memory system."""
 
-import pytest
 import tempfile
-import os
-from oma.automation.memory import WorkingMemory, PersistentMemory, ContextOptimizer
+
+import pytest
+
+from oma.automation.memory import ContextOptimizer, PersistentMemory, WorkingMemory
 
 pytestmark = pytest.mark.unit
 

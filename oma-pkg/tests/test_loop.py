@@ -1,18 +1,19 @@
 """Tests for the RALPH loop (Reason, Act, Learn, Plan, Handoff)."""
 
 import pytest
+
 from oma.core.loop import (
     CoreLoop,
-    RalphLoop,
-    LoopConfig,
-    TaskState,
-    Status,
-    RalphPhase,
-    PhaseEvent,
-    Reasoning,
     Lesson,
+    LoopConfig,
+    PhaseEvent,
     PlanDecision,
+    RalphLoop,
+    RalphPhase,
+    Reasoning,
+    Status,
     Strategy,
+    TaskState,
 )
 
 pytestmark = pytest.mark.unit
@@ -874,10 +875,10 @@ class TestDataclasses:
         assert r.provider_preference == ""
 
     def test_lesson_defaults(self):
-        l = Lesson()
-        assert l.iteration == 0
-        assert l.succeeded is False
-        assert l.confidence_delta == 0.0
+        lesson = Lesson()
+        assert lesson.iteration == 0
+        assert lesson.succeeded is False
+        assert lesson.confidence_delta == 0.0
 
     def test_plan_decision_defaults(self):
         p = PlanDecision()

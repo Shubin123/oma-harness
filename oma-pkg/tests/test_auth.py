@@ -9,20 +9,19 @@ Covers:
   - AuthManager credential storage, status tracking, and callbacks
 """
 
-import os
-import stat
 import time
-from pathlib import Path
+
 import pytest
 
+from oma import platform_compat
 from oma.providers.auth import (
     AuthManager,
-    AuthStatus,
     Credential,
     CredentialStore,
     clean_token,
     detect_auth_type,
 )
+from tests.conftest import assert_owner_only
 
 pytestmark = pytest.mark.unit
 
@@ -105,13 +104,9 @@ class TestCredentialStoreSecurity:
         store = CredentialStore(path=cred_file)
         store.store(Credential(provider="claude", auth_type="cookie", value="test-secret-token"))
 
-        # Verify parent directory is 0700
-        parent_mode = stat.S_IMODE(os.stat(cred_file.parent).st_mode)
-        assert parent_mode == 0o700
-
-        # Verify file is 0600
-        file_mode = stat.S_IMODE(os.stat(cred_file).st_mode)
-        assert file_mode == 0o600
+        # Neither the directory nor the file may be readable by other accounts
+        assert_owner_only(cred_file.parent)
+        assert_owner_only(cred_file)
 
     def test_stored_content_is_encrypted(self, tmp_path):
         cred_file = tmp_path / "creds.json"
@@ -193,8 +188,8 @@ class TestStorageInfoAndFlushing:
         # Raw secret must be masked
         assert info["providers"]["deepseek"]["masked_value"] == "sk-1...cdef"
         assert "sk-123456789abcdef" not in str(info)
-        assert info["file_permissions"] == "0o600"
-        assert info["dir_permissions"] == "0o700"
+        assert info["file_permissions"] == platform_compat.expected_permissions(is_dir=False)
+        assert info["dir_permissions"] == platform_compat.expected_permissions(is_dir=True)
 
     def test_store_flush_securely_wipes_and_unlinks(self, tmp_path):
         store_file = tmp_path / "creds.json"
@@ -250,15 +245,13 @@ class TestStorageInfoAndFlushing:
         mem_dir = tmp_path / "persistent_mem"
         mem = PersistentMemory(base_dir=str(mem_dir))
 
-        # Check directory mode is 0700
-        assert stat.S_IMODE(os.stat(mem_dir).st_mode) == 0o700
+        assert_owner_only(mem_dir)
 
         mem.save("task_alpha", {"objective": "test alpha"})
         mem.save("task_beta", {"objective": "test beta"})
 
-        # Check saved file mode is 0600
         alpha_file = mem_dir / "task_alpha.json"
-        assert stat.S_IMODE(os.stat(alpha_file).st_mode) == 0o600
+        assert_owner_only(alpha_file)
 
         tasks = mem.list_tasks()
         assert set(tasks) == {"task_alpha", "task_beta"}

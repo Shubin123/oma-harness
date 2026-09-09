@@ -11,8 +11,7 @@ The sanitizer is idempotent: running it twice produces the same output.
 """
 
 import re
-from typing import Callable, Optional
-
+from collections.abc import Callable
 
 # ---- pattern registry ----
 

@@ -3,194 +3,87 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and publish (e.g. v0.2.0)"
+        required: true
 
 permissions:
   contents: write
 
 jobs:
-  build-python:
-    name: Python binary (${{ matrix.os }})
+  build:
+    name: ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: macos-14
-            platform: macos
-            arch: arm64
-          - os: macos-13
-            platform: macos
-            arch: x64
-          - os: ubuntu-latest
-            platform: linux
-            arch: x64
-          - os: windows-latest
-            platform: windows
-            arch: x64
+          - { os: macos-14, label: macOS arm64 }
+          - { os: macos-13, label: macOS x64 }
+          - { os: ubuntu-latest, label: Linux x64 }
+          - { os: windows-latest, label: Windows x64 }
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install deps
-        working-directory: oma-pkg
-        run: |
-          pip install -e ".[dev]"
-          pip install pyinstaller
-      - name: Run tests
-        working-directory: oma-pkg
-        run: pytest tests/ -v --tb=short -m "not live"
-      - name: Build binary
-        working-directory: oma-pkg
-        run: pyinstaller oma.spec --clean --noconfirm
-      - name: Package (unix)
-        if: matrix.platform != 'windows'
-        working-directory: oma-pkg
-        run: |
-          ARTIFACT="oma-${{ matrix.platform }}-${{ matrix.arch }}"
-          cp dist/oma "dist/${ARTIFACT}"
-          tar -czf "dist/${ARTIFACT}.tar.gz" -C dist "${ARTIFACT}"
-          shasum -a 256 "dist/${ARTIFACT}.tar.gz" > "dist/${ARTIFACT}.tar.gz.sha256"
-      - name: Package (windows)
-        if: matrix.platform == 'windows'
-        working-directory: oma-pkg
-        shell: pwsh
-        run: |
-          $artifact = "oma-windows-x64.exe"
-          Copy-Item "dist/oma.exe" "dist/$artifact"
-          Compress-Archive -Path "dist/$artifact" -DestinationPath "dist/oma-windows-x64.zip"
-          Get-FileHash "dist/oma-windows-x64.zip" -Algorithm SHA256 | Format-List Hash | Out-File "dist/oma-windows-x64.zip.sha256"
-      - name: Build wheel + sdist
-        if: matrix.os == 'ubuntu-latest'
-        working-directory: oma-pkg
-        run: python -m build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: python-${{ matrix.platform }}-${{ matrix.arch }}
-          path: |
-            oma-pkg/dist/oma-*
-            oma-pkg/dist/*.whl
-            oma-pkg/dist/*.tar.gz
-          if-no-files-found: error
-
-  build-node:
-    name: Node.js binary (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: macos-14
-            platform: macos
-            arch: arm64
-          - os: macos-13
-            platform: macos
-            arch: x64
-          - os: ubuntu-latest
-            platform: linux
-            arch: x64
-          - os: windows-latest
-            platform: windows
-            arch: x64
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Install deps
-        working-directory: oma-ts
-        run: npm install
-      - name: Compile TypeScript
-        working-directory: oma-ts
-        run: npx tsc
-      - name: Bundle
-        working-directory: oma-ts
-        run: |
-          npx esbuild src/cli.ts \
-            --bundle --platform=node --target=node20 --format=esm \
-            --outfile=dist/oma-bundle.mjs \
-            --banner:js="import{createRequire}from'module';const require=createRequire(import.meta.url);"
-      - name: Build SEA (unix)
-        if: matrix.platform != 'windows'
-        working-directory: oma-ts
-        run: |
-          mkdir -p oma-bin
-          cat > oma-bin/sea-config.json <<'EOF'
-          {
-            "main": "../dist/oma-bundle.mjs",
-            "output": "sea-prep.blob",
-            "disableExperimentalSEAWarning": true,
-            "useSnapshot": false,
-            "useCodeCache": true
-          }
-          EOF
-          node --experimental-sea-config oma-bin/sea-config.json
-          cp "$(command -v node)" oma-bin/oma
-          if [ "$(uname)" = "Darwin" ]; then
-            codesign --remove-signature oma-bin/oma 2>/dev/null || true
-          fi
-          npx postject oma-bin/oma NODE_SEA_BLOB oma-bin/sea-prep.blob \
-            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 \
-            $([ "$(uname)" = "Darwin" ] && echo "--macho-segment-name NODE_SEA" || true)
-          if [ "$(uname)" = "Darwin" ]; then
-            codesign --sign - oma-bin/oma 2>/dev/null || true
-          fi
-          chmod +x oma-bin/oma
-          ARTIFACT="oma-node-${{ matrix.platform }}-${{ matrix.arch }}"
-          cp oma-bin/oma "oma-bin/${ARTIFACT}"
-          tar -czf "oma-bin/${ARTIFACT}.tar.gz" -C oma-bin "${ARTIFACT}"
-      - name: Build SEA (windows)
-        if: matrix.platform == 'windows'
-        working-directory: oma-ts
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path oma-bin
-          @'
-          {
-            "main": "../dist/oma-bundle.mjs",
-            "output": "sea-prep.blob",
-            "disableExperimentalSEAWarning": true,
-            "useSnapshot": false,
-            "useCodeCache": true
-          }
-          '@ | Out-File -Encoding utf8 oma-bin/sea-config.json
-          node --experimental-sea-config oma-bin/sea-config.json
-          Copy-Item (Get-Command node).Source oma-bin/oma.exe
-          npx postject oma-bin/oma.exe NODE_SEA_BLOB oma-bin/sea-prep.blob `
-            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
-          $artifact = "oma-node-windows-x64.exe"
-          Copy-Item oma-bin/oma.exe "oma-bin/$artifact"
-          Compress-Archive -Path "oma-bin/$artifact" -DestinationPath "oma-bin/oma-node-windows-x64.zip"
+      - name: Install package
+        working-directory: oma-pkg
+        run: pip install -e ".[dev]"
+
+      # One build driver for every platform: the same script contributors run
+      # locally, so a release cannot diverge from a local build.
+      - name: Build binaries
+        run: python tools/build.py --wheel
+
+      - name: List artifacts
+        shell: bash
+        run: ls -lh dist/
+
       - uses: actions/upload-artifact@v4
         with:
-          name: node-${{ matrix.platform }}-${{ matrix.arch }}
+          name: artifacts-${{ matrix.os }}
           path: |
-            oma-ts/oma-bin/oma-node-*
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.whl
           if-no-files-found: error
 
   release:
-    name: Create release
-    needs: [build-python, build-node]
+    name: Publish release
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
-      - name: List artifacts
-        run: find artifacts -type f | sort
-      - name: Generate checksums
+
+      # Each runner wrote checksums for its own artifacts; the release needs
+      # one file covering all of them.
+      - name: Generate combined checksums
         run: |
           cd artifacts
-          find . -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.whl" -o -name "oma-*" ! -name "*.sha256" \) \
-            -exec sha256sum {} \; | sort > SHA256SUMS
+          find . -type f ! -name SHA256SUMS -printf '%P\n' | sort | \
+            xargs sha256sum > SHA256SUMS
           cat SHA256SUMS
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           generate_release_notes: true
           files: |
-            artifacts/**/*.tar.gz
-            artifacts/**/*.zip
-            artifacts/**/*.whl
-            artifacts/**/SHA256SUMS
+            artifacts/*.tar.gz
+            artifacts/*.zip
+            artifacts/*.whl
+            artifacts/SHA256SUMS
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}

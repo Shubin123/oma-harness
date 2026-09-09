@@ -1,14 +1,15 @@
 """Tests for the sanitizer pipeline."""
 
 import pytest
+
 from oma.core.sanitize import (
     Sanitizer,
-    sanitize,
-    strip_attributions,
-    replace_em_dashes,
-    straighten_quotes,
-    strip_filler,
     collapse_whitespace,
+    replace_em_dashes,
+    sanitize,
+    straighten_quotes,
+    strip_attributions,
+    strip_filler,
 )
 
 pytestmark = pytest.mark.unit
