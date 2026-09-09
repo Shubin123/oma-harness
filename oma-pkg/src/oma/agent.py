@@ -234,6 +234,10 @@ class OMA:
                     reasoning.provider_preference = selected[0] if selected else ""
                 elif selected:
                     reasoning.provider_preference = selected
+                if reasoning.provider_preference:
+                    # Tell the ledger what this attempt will cost, so an
+                    # escalation off the free tiers is visible as it happens.
+                    self.router.selected(reasoning.provider_preference)
 
             if state.attempts == 1:
                 reasoning.analysis = f"First attempt: {state.objective}"
@@ -553,6 +557,7 @@ class OMA:
     def router_status(self) -> dict:
         """Router, circuit breaker, and cost status for GUI dashboard."""
         result = self.router.status()
+        result["tiers"] = self.router.tier_status()
         if self.omniroute_bridge:
             result["omniroute"] = self.omniroute_bridge.status()
         return result

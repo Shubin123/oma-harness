@@ -11,6 +11,7 @@ Usage:
 
 import argparse
 import json
+import os
 import sys
 
 from oma import platform_compat
@@ -55,23 +56,106 @@ def cmd_status(args):
 
 def cmd_providers(args):
     from oma.agent import OMA
+    from oma.providers import catalog
+
+    if getattr(args, "catalog", False) or getattr(args, "free", False):
+        _print_catalog(only_free=getattr(args, "free", False))
+        return
 
     agent = OMA.load()
     names = list(agent.registry._providers.keys())
     if not names:
-        print("No providers configured. Set environment variables:")
-        print("  OMA_CLAUDE_KEY, OMA_GEMINI_KEY, OMA_OPENAI_KEY,")
-        print("  OMA_DEEPSEEK_KEY, OMA_GLM_KEY, OMA_KIMI_KEY")
-        print("Or add credentials via CLI:")
-        print("  oma auth add <provider> <key>")
+        print("No providers configured.")
+        print()
+        print("The quickest way to get running for nothing:")
+        for entry in catalog.free_entries()[:5]:
+            print(f"  {entry.label:<28} {entry.signup_url}")
+        print()
+        print("Then store the key:  oma auth add <provider> <key>")
+        print("Every provider:      oma providers --catalog")
         return
 
     print(f"Configured providers ({len(names)}):")
     for name in names:
-        print(f"  - {name}")
+        entry = catalog.get(name)
+        tier = f"[{entry.tier.value}]" if entry else "[unknown]"
+        print(f"  - {name:<14} {tier}")
 
     chain = agent.registry.fallback_chain()
-    print(f"\nFallback chain: {' -> '.join(chain)}")
+    print()
+    print(f"Fallback chain: {' -> '.join(chain)}")
+
+
+def _print_catalog(only_free: bool = False) -> None:
+    """Print every provider OMA knows about, grouped by what it costs."""
+    from oma.providers import catalog
+
+    entries = catalog.free_entries() if only_free else catalog.all_entries()
+
+    configured = set()
+    try:
+        from oma.providers.auth import AuthManager
+
+        configured = set(AuthManager().store.all_providers())
+    except Exception:
+        pass
+    configured |= {
+        e.id for e in catalog.all_entries() if e.key_env and os.environ.get(e.key_env)
+    }
+
+    current_tier = None
+    for entry in entries:
+        if entry.tier is not current_tier:
+            current_tier = entry.tier
+            print()
+            print(current_tier.value.upper())
+        mark = "*" if entry.id in configured else " "
+        free = entry.free_tier.summary if entry.free_tier else "billed per token"
+        print(f" {mark} {entry.id:<13} {entry.label:<28} {free}")
+        print(f"   {'':<13} sign up: {entry.signup_url}")
+
+    print()
+    print("* = credential already stored.  Add one with: oma auth add <provider> <key>")
+
+
+def cmd_tiers(args):
+    """Show the tier policy and where requests have been going."""
+    import json as _json
+
+    from oma.agent import OMA
+
+    agent = OMA.load()
+    status = agent.router.tier_status()
+    if getattr(args, "json", False):
+        print(_json.dumps(status, indent=2))
+        return
+
+    policy = status["policy"]
+    print("Tier policy:")
+    print(f"  mode:     {policy['mode']}")
+    print(f"  ceiling:  {policy['max_tier'] or 'none (may use paid providers)'}")
+    if policy["blocked"]:
+        print(f"  blocked:  {', '.join(policy['blocked'])}")
+
+    usage = status["usage_by_tier"]
+    if not usage:
+        print()
+        print("No requests routed yet.")
+        return
+
+    print()
+    print("Requests served by tier:")
+    for tier, count in sorted(usage.items()):
+        print(f"  {tier:<14} {count}")
+    print()
+    print(f"Served without spending: {status['free_share'] * 100:.0f}%")
+
+    if status["escalations"]:
+        print()
+        print("Recent escalations:")
+        for esc in status["escalations"][-5:]:
+            print(f"  {esc['from_tier']} -> {esc['to_tier']} "
+                  f"via {esc['provider']}: {esc['reason']}")
 
 
 def cmd_auth(args):
@@ -253,7 +337,14 @@ def main():
     sub.add_parser("status", help="Show agent status")
 
     # providers
-    sub.add_parser("providers", help="List configured providers")
+    p_providers = sub.add_parser("providers", help="List configured providers")
+    p_providers.add_argument("--catalog", action="store_true",
+                             help="List every provider OMA supports, with signup links")
+    p_providers.add_argument("--free", action="store_true",
+                             help="List only providers usable without paying")
+
+    p_tiers = sub.add_parser("tiers", help="Show the tier policy and routing spend")
+    p_tiers.add_argument("--json", action="store_true", help="Emit raw JSON")
 
     # gui
     sub.add_parser("gui", help="Launch graphical interface")
@@ -315,6 +406,7 @@ def main():
         "run": cmd_run,
         "status": cmd_status,
         "providers": cmd_providers,
+        "tiers": cmd_tiers,
         "auth": cmd_auth,
         "memory": cmd_memory,
         "gui": cmd_gui,

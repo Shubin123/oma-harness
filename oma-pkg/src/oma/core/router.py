@@ -24,9 +24,17 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from ..providers.catalog import Tier
+from .tiers import TierLedger, TierMode, TierPolicy, tier_of
+
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
+
+def _cheapest_rank(providers: list[str]) -> int:
+    """The rank of the cheapest tier represented among `providers`."""
+    return min((tier_of(p).rank for p in providers), default=Tier.PAID.rank)
+
 
 class RoutingStrategy(Enum):
     PRIORITY = "priority"
@@ -702,8 +710,11 @@ class Router:
         weights: ScoringWeights | None = None,
         pricing: dict[str, tuple[float, float]] | None = None,
         budgets: dict[str, BudgetRule] | None = None,
+        tier_policy: TierPolicy | None = None,
     ) -> None:
         self.strategy = strategy
+        self.tier_policy = tier_policy or TierPolicy()
+        self.tier_ledger = TierLedger()
         self.breakers: dict[str, CircuitBreaker] = {}
         self.quota_mgr = QuotaManager()
         self.cost_tracker = CostTracker(pricing=pricing, budgets=budgets)
@@ -717,6 +728,7 @@ class Router:
         self._lkgp: dict[str, str] = {}
         self._usage_counts: dict[str, int] = {}
         self._provider_weights: dict[str, float] = {}
+        self._pending_tier_reason = ""
 
     def get_breaker(self, provider_id: str) -> CircuitBreaker:
         if provider_id not in self.breakers:
@@ -765,6 +777,23 @@ class Router:
                     candidates.append(pid)
         if not candidates:
             candidates = list(available)  # absolute last resort
+
+        # tier filtering: of the providers that can serve this request, prefer
+        # the ones that cost the least. A tier drops out of contention when its
+        # providers are rate limited or over budget, which is what makes the
+        # escalation automatic rather than a decision anyone has to make.
+        groups = self.tier_policy.groups(candidates)
+        if groups:
+            self._pending_tier_reason = (
+                "cheaper tiers are out of capacity"
+                if groups[0][0].rank > _cheapest_rank(candidates)
+                else ""
+            )
+            candidates = groups[0][1]
+        elif self.tier_policy.mode is TierMode.FREE_ONLY:
+            # The policy forbids paying and nothing free is left. Say so by
+            # selecting nothing, rather than quietly spending money.
+            return None
 
         # modality filtering
         if modality != Modality.TEXT:
@@ -874,6 +903,11 @@ class Router:
 
     # -- recording --
 
+    def selected(self, provider_id: str) -> None:
+        """Tell the ledger which provider actually ran, for tier accounting."""
+        self.tier_ledger.record(provider_id, getattr(self, "_pending_tier_reason", ""))
+        self._pending_tier_reason = ""
+
     def record_success(
         self,
         provider_id: str,
@@ -915,6 +949,10 @@ class Router:
         return self.pipeline.run(task_type, input_text, call_fn, available, context)
 
     # -- status --
+
+    def tier_status(self) -> dict[str, Any]:
+        """What the tier policy is doing, for the CLI and the dashboard."""
+        return {"policy": self.tier_policy.to_dict(), **self.tier_ledger.to_dict()}
 
     def status(self) -> dict[str, Any]:
         report: dict[str, Any] = {}

@@ -430,6 +430,37 @@ DASHBOARD_HTML = r"""<!doctype html>
   }
   .nav-tab:hover { color: var(--fg); }
   .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tier-summary { display:flex; gap:16px; margin:16px 0; flex-wrap:wrap; }
+.tier-stat { background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+  padding:12px 18px; min-width:150px; }
+.tier-stat-value { font-size:22px; font-weight:600; color:var(--accent); }
+.tier-stat-label { font-size:11px; color:var(--fg2); text-transform:uppercase;
+  letter-spacing:.04em; margin-top:2px; }
+.tier-policy { display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+  margin:16px 0 20px; font-size:12px; color:var(--fg2); }
+.tier-policy select { background:var(--bg2); color:var(--fg); border:1px solid var(--border);
+  border-radius:6px; padding:6px 10px; font-size:12px; }
+.tier-filter { display:flex; align-items:center; gap:6px; }
+.tier-group { margin-bottom:22px; }
+.tier-group h3 { font-size:12px; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--fg2); margin:0 0 4px; }
+.tier-group .tier-note { font-size:11px; color:var(--fg2); margin:0 0 10px; }
+.prov-row { display:grid; grid-template-columns:1fr auto; gap:12px; align-items:start;
+  background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+  padding:12px 14px; margin-bottom:8px; }
+.prov-name { font-weight:600; font-size:13px; }
+.prov-desc { font-size:11px; color:var(--fg2); margin-top:2px; }
+.prov-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  justify-content:flex-end; }
+.prov-actions input { background:var(--bg); color:var(--fg); border:1px solid var(--border);
+  border-radius:6px; padding:6px 8px; font-size:11px; width:190px; font-family:inherit; }
+.prov-status { font-size:11px; margin-top:6px; grid-column:1 / -1; }
+.prov-status.ok { color:#22c55e; }
+.prov-status.fail { color:#ef4444; }
+.prov-status.warn { color:#f59e0b; }
+.escalation-log { font-size:11px; color:var(--fg2); margin-top:18px; }
+.escalation-log div { padding:3px 0; border-bottom:1px solid var(--border); }
+
 </style>
 </head>
 <body>
@@ -440,6 +471,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       <div class="nav-tabs">
         <button class="nav-tab active" onclick="showView('task')" id="nav-task">Task</button>
         <button class="nav-tab" onclick="showView('workflows')" id="nav-workflows">Workflows</button>
+        <button class="nav-tab" onclick="showView('providers')" id="nav-providers">Providers</button>
         <button class="nav-tab" onclick="showView('connect')" id="nav-connect">Connect</button>
         <button class="nav-tab" onclick="showView('routing')" id="nav-routing">Routing</button>
       </div>
@@ -472,6 +504,54 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     <div class="content">
       <!-- Connect View -->
+      <div id="view-providers" class="setup-view" hidden>
+        <h2>Providers</h2>
+        <p class="subtitle">
+          Every provider OMA can use, grouped by what it costs. Sign up on the
+          provider's own site, paste the key here, and OMA verifies it against
+          their API before storing it encrypted on this machine.
+        </p>
+
+        <div class="tier-summary" id="tier-summary">
+          <div class="tier-stat">
+            <div class="tier-stat-value" id="ts-free">--</div>
+            <div class="tier-stat-label">usable without paying</div>
+          </div>
+          <div class="tier-stat">
+            <div class="tier-stat-value" id="ts-configured">--</div>
+            <div class="tier-stat-label">configured</div>
+          </div>
+          <div class="tier-stat">
+            <div class="tier-stat-value" id="ts-share">--</div>
+            <div class="tier-stat-label">requests served free</div>
+          </div>
+        </div>
+
+        <div class="tier-policy">
+          <label for="tier-mode">Spending policy</label>
+          <select id="tier-mode" onchange="setTierPolicy()">
+            <option value="escalate">Cheapest first, escalate when exhausted</option>
+            <option value="free_only">Free only, never spend</option>
+            <option value="prefer_paid">Most capable first</option>
+            <option value="off">No tier preference</option>
+          </select>
+          <label for="tier-ceiling">Ceiling</label>
+          <select id="tier-ceiling" onchange="setTierPolicy()">
+            <option value="">No ceiling</option>
+            <option value="local">Local only</option>
+            <option value="free">Up to free</option>
+            <option value="freemium">Up to freemium</option>
+            <option value="paid">Up to paid</option>
+          </select>
+          <label class="tier-filter">
+            <input type="checkbox" id="only-free" onchange="renderCatalog()"> Free only
+          </label>
+        </div>
+
+        <div id="catalog"></div>
+        <div id="escalations" class="escalation-log"></div>
+      </div>
+
       <div id="view-connect" class="setup-view" hidden>
         <h2>Connect Your Subscriptions</h2>
         <p class="subtitle">
@@ -980,6 +1060,162 @@ const PROVIDERS = {
   kimi:     { name: 'Kimi',     icon: 'K', bg: '#14b8a6' },
 };
 
+// ---- provider catalog ----
+
+let CATALOG = [];
+
+const TIER_NOTES = {
+  local: 'Runs on your own machine. No account, no key, no limits.',
+  free: 'Free to use within published rate limits. No card required.',
+  freemium: 'A free allowance first, billed after it runs out.',
+  subscription: 'Covered by a plan you already pay for.',
+  paid: 'Billed per token from the first call.',
+};
+
+async function refreshCatalog() {
+  try {
+    const res = await fetch('/api/providers/catalog');
+    const data = await res.json();
+    CATALOG = data.providers || [];
+    document.getElementById('ts-free').textContent = data.free_count;
+    document.getElementById('ts-configured').textContent =
+      CATALOG.filter(p => p.configured).length;
+    renderCatalog();
+    refreshTiers();
+  } catch (e) {
+    addLog('Could not load the provider catalog: ' + e.message, 'error');
+  }
+}
+
+function renderCatalog() {
+  const onlyFree = document.getElementById('only-free').checked;
+  const shown = onlyFree
+    ? CATALOG.filter(p => ['local', 'free', 'freemium'].includes(p.tier))
+    : CATALOG;
+
+  const groups = {};
+  shown.forEach(p => { (groups[p.tier] = groups[p.tier] || []).push(p); });
+
+  let html = '';
+  Object.keys(groups).forEach(tier => {
+    html += '<div class="tier-group"><h3>' + escHtml(tier) + '</h3>';
+    html += '<p class="tier-note">' + escHtml(TIER_NOTES[tier] || '') + '</p>';
+    groups[tier].forEach(p => { html += providerRow(p); });
+    html += '</div>';
+  });
+  document.getElementById('catalog').innerHTML = html || '<p class="subtitle">Nothing to show.</p>';
+}
+
+function providerRow(p) {
+  const free = p.free_tier ? p.free_tier.summary : 'Billed per token';
+  const badge = p.configured
+    ? '<span class="badge badge-green">' + escHtml(p.source === 'environment' ? 'from env' : 'ready') + '</span>'
+    : '<span class="badge badge-gray">not set up</span>';
+
+  let actions = '';
+  if (p.needs_key) {
+    actions += '<a class="btn btn-sm" href="' + escHtml(p.signup_url) +
+      '" target="_blank" rel="noopener">Get a key</a>';
+    actions += '<input type="password" id="key-' + escHtml(p.id) +
+      '" placeholder="paste key" autocomplete="off">';
+    p.extra_fields.forEach(f => {
+      actions += '<input type="text" id="extra-' + escHtml(p.id) + '-' + escHtml(f) +
+        '" placeholder="' + escHtml(f) + '">';
+    });
+    actions += '<button class="btn btn-sm btn-primary" onclick="saveProviderKey(\'' +
+      escHtml(p.id) + '\')">Save</button>';
+  } else {
+    actions += '<a class="btn btn-sm" href="' + escHtml(p.signup_url) +
+      '" target="_blank" rel="noopener">Install</a>';
+  }
+
+  return '<div class="prov-row">' +
+    '<div><div class="prov-name">' + escHtml(p.label) + ' ' + badge + '</div>' +
+    '<div class="prov-desc">' + escHtml(free) +
+    (p.notes ? ' &middot; ' + escHtml(p.notes) : '') + '</div></div>' +
+    '<div class="prov-actions">' + actions + '</div>' +
+    '<div class="prov-status" id="pstat-' + escHtml(p.id) + '"></div>' +
+    '</div>';
+}
+
+async function saveProviderKey(id) {
+  const input = document.getElementById('key-' + id);
+  const status = document.getElementById('pstat-' + id);
+  const key = (input.value || '').trim();
+  if (!key) { status.className = 'prov-status fail'; status.textContent = 'Paste a key first.'; return; }
+
+  const entry = CATALOG.find(p => p.id === id) || { extra_fields: [] };
+  const extra = {};
+  entry.extra_fields.forEach(f => {
+    const el = document.getElementById('extra-' + id + '-' + f);
+    if (el && el.value.trim()) extra[f] = el.value.trim();
+  });
+
+  status.className = 'prov-status';
+  status.innerHTML = '<span class="spinner"></span> Verifying with ' + escHtml(entry.label || id) + '...';
+
+  try {
+    const res = await fetch('/api/providers/key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: id, api_key: key, extra: extra }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      status.className = 'prov-status ' + (data.verified ? 'ok' : 'warn');
+      status.textContent = (data.verified ? 'Verified. ' : 'Stored. ') + (data.detail || '');
+      input.value = '';
+      addLog(id + ' connected: ' + (data.detail || 'key stored'), 'info');
+      refreshCatalog();
+    } else {
+      status.className = 'prov-status fail';
+      status.textContent = data.error || 'Verification failed';
+    }
+  } catch (e) {
+    status.className = 'prov-status fail';
+    status.textContent = 'Network error: ' + e.message;
+  }
+}
+
+async function refreshTiers() {
+  try {
+    const res = await fetch('/api/tiers');
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('ts-share').textContent =
+      Math.round((data.free_share ?? 1) * 100) + '%';
+    if (data.policy) {
+      document.getElementById('tier-mode').value = data.policy.mode;
+      document.getElementById('tier-ceiling').value = data.policy.max_tier || '';
+    }
+    const log = document.getElementById('escalations');
+    if (data.escalations && data.escalations.length) {
+      log.innerHTML = '<strong>Escalations</strong>' + data.escalations.map(e =>
+        '<div>' + escHtml(e.from_tier) + ' &rarr; ' + escHtml(e.to_tier) +
+        ' via ' + escHtml(e.provider) + ': ' + escHtml(e.reason) + '</div>').join('');
+    } else {
+      log.innerHTML = '';
+    }
+  } catch (e) { /* the agent may not be built yet */ }
+}
+
+async function setTierPolicy() {
+  const mode = document.getElementById('tier-mode').value;
+  const ceiling = document.getElementById('tier-ceiling').value;
+  try {
+    const res = await fetch('/api/tiers/policy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: mode, max_tier: ceiling }),
+    });
+    const data = await res.json();
+    if (data.ok) addLog('Spending policy: ' + mode + (ceiling ? ', ceiling ' + ceiling : ''), 'info');
+    else addLog('Could not change the policy: ' + (data.error || 'unknown'), 'error');
+  } catch (e) {
+    addLog('Could not change the policy: ' + e.message, 'error');
+  }
+}
+
 const RALPH_PHASES = ['reason', 'act', 'learn', 'plan', 'handoff'];
 const RALPH_LABELS = {
   reason: 'Analyzing task state and determining approach',
@@ -991,6 +1227,7 @@ const RALPH_LABELS = {
 
 // ---- views ----
 function showView(view) {
+  document.getElementById('view-providers').hidden = (view !== 'providers');
   document.getElementById('view-task').hidden = (view !== 'task');
   document.getElementById('view-connect').hidden = (view !== 'connect');
   document.getElementById('view-workflows').hidden = (view !== 'workflows');
@@ -999,6 +1236,7 @@ function showView(view) {
   document.getElementById('nav-' + view).classList.add('active');
   if (view === 'workflows') wfInit();
   if (view === 'routing') refreshRouting();
+  if (view === 'providers') refreshCatalog();
 }
 
 // ---- logging ----
@@ -2334,8 +2572,72 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             self._send_json(self.auth_manager.storage_info())
 
+        elif self.path == "/api/providers/catalog":
+            self._send_json(self._catalog_payload())
+
+        elif self.path == "/api/tiers":
+            if not self.agent:
+                self._send_json({"error": "no providers configured"}, 400)
+                return
+            self._send_json(self.agent.router.tier_status())
+
         else:
             self.send_error(404)
+
+    # -- provider catalog helpers --
+
+    def _catalog_payload(self) -> dict:
+        """
+        The whole provider catalog, annotated with what is already set up.
+
+        The dashboard renders straight from this, so a provider added to the
+        catalog appears in the UI without touching any markup.
+        """
+        import os
+
+        from ..providers import catalog
+
+        stored: dict = {}
+        if self.auth_manager:
+            try:
+                stored = self.auth_manager.store.all_providers()
+            except Exception:
+                stored = {}
+
+        entries = []
+        for entry in catalog.all_entries():
+            payload = entry.to_dict()
+            from_env = bool(entry.key_env and os.environ.get(entry.key_env))
+            payload["configured"] = entry.id in stored or from_env or not entry.needs_key
+            payload["source"] = (
+                "stored" if entry.id in stored
+                else "environment" if from_env
+                else "none"
+            )
+            entries.append(payload)
+
+        return {
+            "providers": entries,
+            "tiers": [t.value for t in catalog.Tier],
+            "free_count": len([e for e in entries if e["tier"] in ("local", "free", "freemium")]),
+        }
+
+    def _verify_api_key(self, provider: str, api_key: str, extra: dict | None = None):
+        """
+        Check a key against the provider before storing it.
+
+        Returns (verified, detail): True when the provider confirmed the key,
+        False when it refused one, and None when there is no way to check --
+        storing an unverifiable key is fine, storing a refused one is not.
+        """
+        from ..providers.catalog import VerifyResult, verify_key
+
+        result, detail = verify_key(provider, api_key, extra)
+        if result is VerifyResult.VALID:
+            return True, detail
+        if result is VerifyResult.REJECTED:
+            return False, detail
+        return None, detail
 
     def do_POST(self):
         parsed = urlparse(self.path)
@@ -2368,6 +2670,58 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True})
             else:
                 self._send_json({"error": "missing provider or api_key"}, 400)
+
+        elif parsed.path == "/api/providers/key":
+            body = self._read_body()
+            provider = body.get("provider", "")
+            api_key = body.get("api_key", "")
+            extra = body.get("extra") or {}
+            if not provider or not api_key:
+                self._send_json({"error": "missing provider or api_key"}, 400)
+                return
+            if not self.auth_manager:
+                self._send_json({"error": "auth not initialized"}, 500)
+                return
+
+            ok, detail = self._verify_api_key(provider, api_key, extra)
+            if ok is False:
+                self._send_json({"ok": False, "error": detail})
+                return
+
+            self.auth_manager.store_api_key(provider, api_key)
+            self._rebuild_agent()
+            self._send_json({"ok": True, "verified": bool(ok), "detail": detail})
+
+        elif parsed.path == "/api/tiers/policy":
+            body = self._read_body()
+            if not self.agent:
+                self._send_json({"error": "no providers configured"}, 400)
+                return
+
+            from ..core.tiers import TierMode
+            from ..providers.catalog import Tier
+
+            policy = self.agent.router.tier_policy
+            mode = body.get("mode")
+            if mode:
+                try:
+                    policy.mode = TierMode(mode)
+                except ValueError:
+                    self._send_json({"error": f"unknown tier mode: {mode}"}, 400)
+                    return
+
+            if "max_tier" in body:
+                ceiling = body.get("max_tier")
+                try:
+                    policy.max_tier = Tier(ceiling) if ceiling else None
+                except ValueError:
+                    self._send_json({"error": f"unknown tier: {ceiling}"}, 400)
+                    return
+
+            if "blocked" in body:
+                policy.blocked = set(body.get("blocked") or [])
+
+            self._send_json({"ok": True, **self.agent.router.tier_status()})
 
         elif parsed.path == "/api/auth/logout":
             body = self._read_body()

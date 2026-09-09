@@ -246,48 +246,32 @@ class ProviderConfig(TypedDict):
     parse_fn: Callable[..., Any]
 
 
-PROVIDER_CONFIGS: dict[str, ProviderConfig] = {
-    "claude": {
-        "endpoint": "https://api.anthropic.com/v1/messages",
-        "default_model": "claude-sonnet-4-20250514",
-        "headers_fn": _claude_headers,
-        "body_fn": _claude_body,
-        "parse_fn": _claude_parse,
-    },
-    "chatgpt": {
-        "endpoint": "https://api.openai.com/v1/chat/completions",
-        "default_model": "gpt-4o",
-        "headers_fn": _openai_headers,
-        "body_fn": _openai_body,
-        "parse_fn": _openai_parse,
-    },
-    "gemini": {
-        # api key appended as query param at call time
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-        "default_model": "gemini-2.0-flash",
-        "headers_fn": _gemini_headers,
-        "body_fn": _gemini_body,
-        "parse_fn": _gemini_parse,
-    },
-    "deepseek": {
-        "endpoint": "https://api.deepseek.com/chat/completions",
-        "default_model": "deepseek-chat",
-        "headers_fn": _deepseek_headers,
-        "body_fn": _deepseek_body,
-        "parse_fn": _deepseek_parse,
-    },
-    "glm": {
-        "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-        "default_model": "glm-4-flash",
-        "headers_fn": _openai_headers,  # openai-compatible
-        "body_fn": _openai_body,
-        "parse_fn": _openai_parse,
-    },
-    "kimi": {
-        "endpoint": "https://api.moonshot.cn/v1/chat/completions",
-        "default_model": "moonshot-v1-8k",
-        "headers_fn": _openai_headers,  # openai-compatible
-        "body_fn": _openai_body,
-        "parse_fn": _openai_parse,
-    },
+# Each API dialect needs one set of request/response adapters. Every provider
+# in the catalog speaks one of these three, which is why adding a provider is
+# a catalog entry rather than new transport code.
+_STYLE_ADAPTERS: dict[str, tuple[Callable[..., Any], Callable[..., Any], Callable[..., Any]]] = {
+    "anthropic": (_claude_headers, _claude_body, _claude_parse),
+    "openai": (_openai_headers, _openai_body, _openai_parse),
+    "gemini": (_gemini_headers, _gemini_body, _gemini_parse),
 }
+
+
+def _build_configs() -> dict[str, ProviderConfig]:
+    """Derive the transport table from the catalog, so the two cannot drift."""
+    from .catalog import CATALOG
+
+    configs: dict[str, ProviderConfig] = {}
+    for entry in CATALOG.values():
+        headers_fn, body_fn, parse_fn = _STYLE_ADAPTERS[entry.api_style.value]
+        configs[entry.id] = {
+            "endpoint": entry.chat_endpoint,
+            "default_model": entry.default_model,
+            "headers_fn": headers_fn,
+            "body_fn": body_fn,
+            "parse_fn": parse_fn,
+        }
+    return configs
+
+
+PROVIDER_CONFIGS: dict[str, ProviderConfig] = _build_configs()
+
