@@ -18,6 +18,12 @@
  */
 
 import fs from 'node:fs';
+import {
+  describePermissions,
+  machineId,
+  makePrivateDir,
+  restrictToOwner,
+} from '../platformCompat.js';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
@@ -184,43 +190,14 @@ export class CredentialStore {
 
   constructor(storePath?: string) {
     this._path = storePath ?? path.join(os.homedir(), '.oma', 'credentials.json');
-    const dir = path.dirname(this._path);
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    makePrivateDir(path.dirname(this._path));
     this._restrictPermissions();
     this._key = this._deriveKey();
     this._load();
   }
 
   private _deriveKey(): Buffer {
-    let machineId = '';
-
-    // Linux: /etc/machine-id
-    for (const p of ['/etc/machine-id', '/var/lib/dbus/machine-id']) {
-      try {
-        machineId = fs.readFileSync(p, 'utf-8').trim();
-        if (machineId) break;
-      } catch { /* ignore */ }
-    }
-
-    // macOS: hardware UUID
-    if (!machineId && process.platform === 'darwin') {
-      try {
-        const result = execSync('ioreg -rd1 -c IOPlatformExpertDevice', { timeout: 5000 }).toString();
-        for (const line of result.split('\n')) {
-          if (line.includes('IOPlatformUUID')) {
-            machineId = line.split('"').at(-2) ?? '';
-            break;
-          }
-        }
-      } catch { /* ignore */ }
-    }
-
-    // fallback: hostname + username
-    if (!machineId) {
-      machineId = `${os.hostname()}:${os.userInfo().username}`;
-    }
-
-    return crypto.pbkdf2Sync(machineId, 'oma-credential-store', 100_000, 32, 'sha256');
+    return crypto.pbkdf2Sync(machineId(), 'oma-credential-store', 100_000, 32, 'sha256');
   }
 
   private _encrypt(data: string): string {
@@ -262,18 +239,12 @@ export class CredentialStore {
   }
 
   private _restrictPermissions(): void {
-    const dir = path.dirname(this._path);
-    try {
-      if (fs.existsSync(dir)) fs.chmodSync(dir, 0o700);
-    } catch { /* ignore */ }
-    try {
-      if (fs.existsSync(this._path)) fs.chmodSync(this._path, 0o600);
-    } catch { /* ignore */ }
+    restrictToOwner(path.dirname(this._path));
+    restrictToOwner(this._path);
   }
 
   private _save(): void {
-    const dir = path.dirname(this._path);
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    makePrivateDir(path.dirname(this._path));
 
     const raw = JSON.stringify(this._creds);
     const encrypted = this._encrypt(raw);
@@ -282,6 +253,7 @@ export class CredentialStore {
     const tmp = this._path + '.tmp.' + process.pid;
     try {
       fs.writeFileSync(tmp, JSON.stringify({ data: encrypted, v: 1 }), { mode: 0o600 });
+      restrictToOwner(tmp);
       fs.renameSync(tmp, this._path);
     } catch {
       try { fs.unlinkSync(tmp); } catch { /* ignore */ }
@@ -347,15 +319,10 @@ export class CredentialStore {
     let dirPermissions: string | null = null;
 
     if (exists) {
-      const stat = fs.statSync(this._path);
-      sizeBytes = stat.size;
-      filePermissions = '0o' + (stat.mode & 0o777).toString(8);
+      sizeBytes = fs.statSync(this._path).size;
+      filePermissions = describePermissions(this._path);
     }
-    const dir = path.dirname(this._path);
-    if (fs.existsSync(dir)) {
-      const dStat = fs.statSync(dir);
-      dirPermissions = '0o' + (dStat.mode & 0o777).toString(8);
-    }
+    dirPermissions = describePermissions(path.dirname(this._path));
 
     const stored: Record<string, unknown> = {};
     for (const [name, cred] of Object.entries(this._creds)) {
@@ -374,7 +341,7 @@ export class CredentialStore {
 
     return {
       credentials_file: this._path,
-      credentials_dir: dir,
+      credentials_dir: path.dirname(this._path),
       file_exists: exists,
       size_bytes: sizeBytes,
       file_permissions: filePermissions,

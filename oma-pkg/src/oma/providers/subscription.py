@@ -449,7 +449,7 @@ class GeminiSubscriptionProvider(SubscriptionProvider):
 
 # ---- factory ----
 
-SUBSCRIPTION_PROVIDERS = {
+SUBSCRIPTION_PROVIDERS: dict[str, type[SubscriptionProvider]] = {
     "claude": ClaudeSubscriptionProvider,
     "chatgpt": ChatGPTSubscriptionProvider,
     "gemini": GeminiSubscriptionProvider,
@@ -458,15 +458,12 @@ SUBSCRIPTION_PROVIDERS = {
 
 def make_subscription_provider(name: str, credential_value: str, auth_type: str = "cookie") -> Provider | None:
     """Create a subscription-based provider from stored credentials."""
-    cls = SUBSCRIPTION_PROVIDERS.get(name)
-    if not cls:
-        return None
-
+    # Dispatched by name rather than through the table: each provider takes
+    # its credential under a different keyword.
     if name == "claude":
-        return cls(session_cookie=credential_value)
-    elif name == "chatgpt":
-        return cls(access_token=credential_value)
-    elif name == "gemini":
-        return cls(session_cookie=credential_value)
-
+        return ClaudeSubscriptionProvider(session_cookie=credential_value)
+    if name == "chatgpt":
+        return ChatGPTSubscriptionProvider(access_token=credential_value)
+    if name == "gemini":
+        return GeminiSubscriptionProvider(session_cookie=credential_value)
     return None

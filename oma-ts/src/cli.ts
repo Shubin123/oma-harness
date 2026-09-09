@@ -11,6 +11,7 @@
  */
 
 import { parseArgs } from 'node:util';
+import { IS_WINDOWS } from './platformCompat.js';
 
 // ---- commands ----
 
@@ -171,8 +172,10 @@ async function cmdAuth(args: string[]): Promise<void> {
     console.log(`  File Exists:         ${info.file_exists}`);
     if (info.file_exists) {
       console.log(`  File Size:           ${info.size_bytes} bytes`);
-      console.log(`  File Mode:           ${info.file_permissions} (owner-only: rw-------)`);
-      console.log(`  Directory Mode:      ${info.dir_permissions} (owner-only: rwx------)`);
+      const fileNote = IS_WINDOWS ? '' : ' (owner-only: rw-------)';
+      const dirNote = IS_WINDOWS ? '' : ' (owner-only: rwx------)';
+      console.log(`  File Mode:           ${info.file_permissions}${fileNote}`);
+      console.log(`  Directory Mode:      ${info.dir_permissions}${dirNote}`);
     }
     console.log(`  Encryption:          ${info.encryption}`);
     console.log(`  Stored Providers:    ${info.provider_count}`);
@@ -187,7 +190,9 @@ async function cmdAuth(args: string[]): Promise<void> {
     console.log('  - Single provider:   oma auth remove <provider>');
     console.log('  - All credentials:   oma auth flush --all');
     console.log('  - All + Task memory: oma auth flush --all --include-memory');
-    console.log('  - Manual purge:      rm -f ~/.oma/credentials.json && rm -rf .oma_memory/');
+    console.log(IS_WINDOWS
+      ? `  - Manual purge:      del "${info.credentials_file}" && rmdir /s /q .oma_memory`
+      : '  - Manual purge:      rm -f ~/.oma/credentials.json && rm -rf .oma_memory/');
 
   } else if (sub === 'status' || sub === 'list') {
     const st = mgr.status();

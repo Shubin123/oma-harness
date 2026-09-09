@@ -19,7 +19,7 @@ import threading
 import time
 
 
-def _find_free_port(start=8384) -> int:
+def _find_free_port(start: int = 8384) -> int:
     """Find an available port starting from the given number."""
     import socket
     for port in range(start, start + 100):
@@ -60,7 +60,7 @@ def _wait_for_server(port: int, timeout: float = 10.0) -> bool:
     return False
 
 
-def run_native(port: int = None):
+def run_native(port: int | None = None):
     """
     Launch OMA in a native window using pywebview.
 

@@ -1,13 +1,14 @@
 """Tests for the criteria engine."""
 
 import pytest
+
 from oma.core.criteria import (
+    CriteriaSet,
     Criterion,
     CriterionType,
-    CriteriaSet,
+    automation_criteria,
     code_quality_criteria,
     research_criteria,
-    automation_criteria,
 )
 
 pytestmark = pytest.mark.unit

@@ -11,10 +11,9 @@ Each provider impl uses raw HTTP or optional SDK, imported lazily.
 
 import os
 import time
-import json
-from dataclasses import dataclass, field
-from typing import Optional
-from .base import Provider, ProviderResponse, ErrorClass, RateLimiter
+from dataclasses import dataclass
+
+from .base import ErrorClass, Provider
 
 
 @dataclass
@@ -24,8 +23,8 @@ class ProviderHealth:
     failures: int = 0
     total_tokens: int = 0
     total_latency_ms: float = 0.0
-    last_error: Optional[str] = None
-    last_error_class: Optional[ErrorClass] = None
+    last_error: str | None = None
+    last_error_class: ErrorClass | None = None
     last_success_at: float = 0.0
     cooldown_until: float = 0.0
 
@@ -93,10 +92,10 @@ class ProviderRegistry:
         self._health[name] = ProviderHealth(name=name)
         return self
 
-    def get(self, name: str) -> Optional[Provider]:
+    def get(self, name: str) -> Provider | None:
         return self._providers.get(name)
 
-    def health(self, name: str) -> Optional[ProviderHealth]:
+    def health(self, name: str) -> ProviderHealth | None:
         return self._health.get(name)
 
     def available(self) -> list[str]:
@@ -106,7 +105,7 @@ class ProviderRegistry:
             if h.is_cooled_down
         ]
 
-    def best_available(self) -> Optional[str]:
+    def best_available(self) -> str | None:
         """Pick the provider with best success rate * inverse latency, among available."""
         avail = self.available()
         if not avail:
@@ -227,7 +226,7 @@ class ProviderRegistry:
         return reg
 
 
-def _make_http_provider(name: str, api_key: str) -> Optional[Provider]:
+def _make_http_provider(name: str, api_key: str) -> Provider | None:
     """
     Factory: create a provider using raw HTTP (no SDK dependency).
     Each provider is just an endpoint + auth + response mapping.
@@ -249,7 +248,7 @@ def _make_http_provider(name: str, api_key: str) -> Optional[Provider]:
     )
 
 
-def _make_subscription_provider(name: str, credential_value: str, auth_type: str) -> Optional[Provider]:
+def _make_subscription_provider(name: str, credential_value: str, auth_type: str) -> Provider | None:
     """
     Factory: create a subscription-based provider from stored credentials.
     Uses session cookies/tokens from browser login.

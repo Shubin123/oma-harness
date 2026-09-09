@@ -18,7 +18,6 @@ import os
 import time
 import urllib.error
 import urllib.request
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -180,7 +179,7 @@ class TestRunAPI:
                 return
             except ConnectionError:
                 if attempt == 0:
-                    import time; time.sleep(0.5)
+                    time.sleep(0.5)
                     continue
                 raise
 
@@ -355,7 +354,7 @@ class TestLiveExecution:
         if status == "done":
             output = result.get("result", "")
             assert "OMA_TEST_OK" in output or len(output) > 0, (
-                f"Task completed but output is empty or missing marker"
+                "Task completed but output is empty or missing marker"
             )
 
         # always check we got token accounting
@@ -538,6 +537,7 @@ class TestConversationNaming:
         currently sends name="" which leaves conversations untitled.
         """
         import inspect
+
         from oma.providers.subscription import ClaudeSubscriptionProvider
 
         source = inspect.getsource(ClaudeSubscriptionProvider._create_conversation)

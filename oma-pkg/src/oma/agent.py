@@ -23,28 +23,32 @@ Usage:
     result = agent.run("build a web scraper for HN front page")
 """
 
+from collections.abc import Callable
+from typing import Any
+
 from oma.automation.memory import ContextOptimizer, PersistentMemory, WorkingMemory
 from oma.core.criteria import ensure_criteria
 from oma.core.edge import near_outage_handler
 from oma.core.loop import (
-    RalphLoop,
-    LoopConfig,
-    TaskState,
-    Strategy,
-    Reasoning,
     Lesson,
-    PlanDecision,
+    LoopConfig,
     PhaseEvent,
-)
-from oma.core.sanitize import Sanitizer
-from oma.core.router import (
-    Router,
-    RoutingStrategy,
-    Modality,
-    BudgetRule,
-    ScoringWeights,
+    PlanDecision,
+    RalphLoop,
+    Reasoning,
+    Strategy,
+    TaskState,
 )
 from oma.core.omniroute_bridge import OmniRouteBridge, OmniRouteConfig
+from oma.core.router import (
+    BudgetRule,
+    Modality,
+    Router,
+    RoutingStrategy,
+    ScoringWeights,
+)
+from oma.core.sanitize import Sanitizer
+from oma.providers.base import ErrorClass
 from oma.providers.registry import ProviderRegistry
 
 
@@ -63,14 +67,14 @@ class OMA:
     def __init__(
         self,
         registry: ProviderRegistry,
-        config: LoopConfig = None,
-        sanitizer: Sanitizer = None,
+        config: LoopConfig | None = None,
+        sanitizer: Sanitizer | None = None,
         memory_dir: str = ".oma_memory",
         routing_strategy: RoutingStrategy = RoutingStrategy.AUTO,
-        scoring_weights: ScoringWeights = None,
-        budgets: dict = None,
+        scoring_weights: ScoringWeights | None = None,
+        budgets: dict | None = None,
         omniroute: bool = False,
-        omniroute_config: OmniRouteConfig = None,
+        omniroute_config: OmniRouteConfig | None = None,
     ):
         self.registry = registry
         self.config = config or LoopConfig(
@@ -103,7 +107,7 @@ class OMA:
 
         # ralph phase tracking for GUI
         self._current_phase = "idle"
-        self._phase_events = []
+        self._phase_events: list[dict] = []
 
     @classmethod
     def from_env(
@@ -152,10 +156,10 @@ class OMA:
     def run(
         self,
         objective: str,
-        criteria: dict = None,
+        criteria: dict | None = None,
         system: str = "",
-        resume_from: str = None,
-        on_phase: callable = None,
+        resume_from: str | None = None,
+        on_phase: Callable[[Any], None] | None = None,
         task_type: str = "general",
         modality: Modality = Modality.TEXT,
     ) -> TaskState:
@@ -174,12 +178,13 @@ class OMA:
         self._current_phase = "idle"
         self._phase_events = []
 
-        # probe OmniRoute availability if enabled
+        # probe OmniRoute availability if enabled -- reading the property
+        # runs the health check once and caches the verdict
         if self.omniroute_bridge:
-            self.omniroute_bridge.check_availability()
+            _ = self.omniroute_bridge.available
 
         # load previous state if resuming
-        prev_context = None
+        prev_context: dict = {}
         if resume_from:
             prev = self.persistent.load(resume_from)
             prev_context = prev
@@ -398,8 +403,10 @@ class OMA:
         )
 
         if not response.ok:
-            ec = response.error_class
-            self.registry.record_failure(provider_name, response.error, ec)
+            # A provider that fails without classifying the error is treated
+            # as transient, so one odd response does not retire the chain.
+            ec = response.error_class or ErrorClass.RETRYABLE
+            self.registry.record_failure(provider_name, response.error or "", ec)
             # record failure in router too
             error_code = getattr(response, "error_code", None) or 0
             self.router.record_failure(
@@ -444,6 +451,8 @@ class OMA:
     ):
         """Execute via OmniRoute gateway for full 352+ provider routing."""
         bridge = self.omniroute_bridge
+        if bridge is None:  # only reachable if the bridge was torn down mid-run
+            return self._solve_direct(state, provider_name, system, prev_context, "general")
 
         # build messages
         msgs = []

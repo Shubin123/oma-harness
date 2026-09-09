@@ -1,9 +1,10 @@
 """Tests for edge handlers."""
 
 import pytest
-from oma.core.edge import HandoffNote, near_outage_handler, outage_recovery_prompt
-from oma.core.loop import TaskState, Status
+
 from oma.automation.memory import WorkingMemory
+from oma.core.edge import HandoffNote, near_outage_handler, outage_recovery_prompt
+from oma.core.loop import TaskState
 
 pytestmark = pytest.mark.unit
 

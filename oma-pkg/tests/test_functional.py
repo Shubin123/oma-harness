@@ -5,18 +5,13 @@ Tests component workflows, multi-provider fallbacks, criteria gating,
 memory-driven context optimization, persistent task resumption, and CLI workflows.
 """
 
-import json
-import os
-import time
-from pathlib import Path
 
 import pytest
 
 from oma.agent import OMA
-from oma.automation.memory import PersistentMemory, WorkingMemory
-from oma.core.criteria import CriteriaSet, Criterion, CriterionType
-from oma.core.loop import LoopConfig, Status, TaskState
-from oma.providers.auth import AuthManager, CredentialStore
+from oma.automation.memory import PersistentMemory
+from oma.core.loop import LoopConfig, Status
+from oma.providers.auth import CredentialStore
 from oma.providers.base import ErrorClass, Provider, ProviderResponse
 from oma.providers.registry import ProviderRegistry
 
@@ -253,11 +248,13 @@ class TestCLIFunctional:
             lambda self, path=None: orig_init(self, path=cred_path)
         )
 
-        from oma.cli import main
         import sys
 
+        from oma.cli import main
+
         # 1. Add sessional key for claude
-        monkeypatch.setattr(sys, "argv", ["oma", "auth", "add", "claude", "sessionKey=sk-ant-sid01-mykey", "--plan", "pro"])
+        monkeypatch.setattr(sys, "argv", ["oma", "auth", "add", "claude",
+                                          "sessionKey=sk-ant-sid01-mykey", "--plan", "pro"])
         main()
 
         # 2. Add API key for deepseek
@@ -302,8 +299,9 @@ class TestCLIFunctional:
             lambda self, path=None: orig_init(self, path=cred_path)
         )
 
-        from oma.cli import main
         import sys
+
+        from oma.cli import main
 
         # Add credentials
         monkeypatch.setattr(sys, "argv", ["oma", "auth", "add", "deepseek", "sk-deepseek-12345678"])
@@ -326,13 +324,13 @@ class TestCLIFunctional:
 
     def test_cli_memory_list_and_flush(self, tmp_path, monkeypatch):
         mem_path = tmp_path / "mem_dir"
-        from oma.automation.memory import PersistentMemory
         pm = PersistentMemory(base_dir=str(mem_path))
         pm.save("t1", {"val": 1})
         pm.save("t2", {"val": 2})
 
-        from oma.cli import main
         import sys
+
+        from oma.cli import main
 
         # List memory
         monkeypatch.setattr(sys, "argv", ["oma", "memory", "list", "--dir", str(mem_path)])
