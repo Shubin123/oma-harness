@@ -109,6 +109,18 @@ if wintypes is not None:
         _fields_ = [("type", wintypes.DWORD), ("u", _INPUTUNION)]
 
 
+def _last_error() -> int:
+    """
+    The code from the last failing Win32 call.
+
+    `ctypes.get_last_error` is defined only in Windows builds of the standard
+    library, so it is looked up rather than called directly -- otherwise a
+    type-checker running on Linux flags every use.
+    """
+    getter = getattr(ctypes, "get_last_error", None)
+    return getter() if getter else 0
+
+
 def _require_windows():
     if wintypes is None:
         raise RuntimeError("the Win32 automation backend only runs on Windows")
@@ -193,7 +205,7 @@ def capture(path: str, region=None) -> str:
         # CAPTUREBLT includes layered windows, which is what a user sees.
         if not gdi32.BitBlt(mem_dc, 0, 0, width, height, screen_dc, x, y,
                             SRCCOPY | CAPTUREBLT):
-            raise OSError(f"screen capture failed: {ctypes.get_last_error()}")
+            raise OSError(f"screen capture failed: {_last_error()}")
 
         info = BITMAPINFO()
         info.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
@@ -224,7 +236,7 @@ def _send(inputs) -> None:
     array = (INPUT * len(inputs))(*inputs)
     sent = user32.SendInput(len(inputs), array, ctypes.sizeof(INPUT))
     if sent != len(inputs):
-        raise OSError(f"input was rejected by the system: {ctypes.get_last_error()}")
+        raise OSError(f"input was rejected by the system: {_last_error()}")
 
 
 def _key_input(vk: int, scan: int, flags: int) -> "INPUT":
@@ -238,7 +250,7 @@ def click(x: int, y: int, button: str = "left", clicks: int = 1) -> None:
     user32 = _user32()
     user32.SetProcessDPIAware()
     if not user32.SetCursorPos(int(x), int(y)):
-        raise OSError(f"could not move the pointer: {ctypes.get_last_error()}")
+        raise OSError(f"could not move the pointer: {_last_error()}")
 
     down, up = MOUSE_BUTTONS.get(button, MOUSE_BUTTONS["left"])
     events = []

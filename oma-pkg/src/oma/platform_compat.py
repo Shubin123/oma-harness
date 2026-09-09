@@ -89,13 +89,15 @@ def machine_id() -> str:
         try:
             import winreg
 
-            with winreg.OpenKey(
-                winreg.HKEY_LOCAL_MACHINE,
+            # winreg exists only on Windows, so a type-checker running on
+            # Linux or macOS cannot see any of its members.
+            with winreg.OpenKey(  # type: ignore[attr-defined]
+                winreg.HKEY_LOCAL_MACHINE,  # type: ignore[attr-defined]
                 r"SOFTWARE\Microsoft\Cryptography",
                 0,
-                winreg.KEY_READ | winreg.KEY_WOW64_64KEY,
+                winreg.KEY_READ | winreg.KEY_WOW64_64KEY,  # type: ignore[attr-defined]
             ) as key:
-                guid, _ = winreg.QueryValueEx(key, "MachineGuid")
+                guid, _ = winreg.QueryValueEx(key, "MachineGuid")  # type: ignore[attr-defined]
             if guid:
                 return str(guid)
         except (ImportError, OSError):
