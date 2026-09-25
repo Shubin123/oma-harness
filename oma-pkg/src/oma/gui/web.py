@@ -430,6 +430,41 @@ DASHBOARD_HTML = r"""<!doctype html>
   }
   .nav-tab:hover { color: var(--fg); }
   .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ---- Hover Tooltip System ---- */
+  .oma-tooltip {
+    position: fixed;
+    z-index: 100000;
+    pointer-events: none;
+    background: var(--bg2);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+    padding: 7px 11px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-family: var(--sans);
+    line-height: 1.45;
+    max-width: 290px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    white-space: normal;
+    word-wrap: break-word;
+  }
+  .oma-tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .oma-tooltip .tt-title {
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 3px;
+    font-size: 12px;
+  }
+  .oma-tooltip .tt-desc {
+    color: var(--fg2);
+  }
 </style>
 </head>
 <body>
@@ -438,13 +473,13 @@ DASHBOARD_HTML = r"""<!doctype html>
     <h1><span>OMA</span> Open Multi Agent</h1>
     <div class="header-right">
       <div class="nav-tabs">
-        <button class="nav-tab active" onclick="showView('task')" id="nav-task">Task</button>
-        <button class="nav-tab" onclick="showView('workflows')" id="nav-workflows">Workflows</button>
-        <button class="nav-tab" onclick="showView('connect')" id="nav-connect">Connect</button>
-        <button class="nav-tab" onclick="showView('routing')" id="nav-routing">Routing</button>
+        <button class="nav-tab active" onclick="showView('task')" id="nav-task" data-tooltip-title="Task Runner" data-tooltip="Execute prompt objectives with autonomous RALPH loop, live progress, and step execution">Task</button>
+        <button class="nav-tab" onclick="showView('workflows')" id="nav-workflows" data-tooltip-title="Workflow Studio" data-tooltip="Interactive visual DAG editor with multi-agent orchestration, RAG, and tools">Workflows</button>
+        <button class="nav-tab" onclick="showView('connect')" id="nav-connect" data-tooltip-title="Provider Setup" data-tooltip="Connect subscription sessions (Claude, ChatGPT, Gemini) or enter API keys">Connect</button>
+        <button class="nav-tab" onclick="showView('routing')" id="nav-routing" data-tooltip-title="Routing Engine" data-tooltip="Multi-strategy routing engine, self-healing circuit breakers, and cost analytics">Routing</button>
       </div>
-      <span id="conn-status" class="badge badge-gray">0 providers</span>
-      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">&#9681;</button>
+      <span id="conn-status" class="badge badge-gray" data-tooltip-title="Active Providers" data-tooltip="Number of configured and ready model providers available for execution">0 providers</span>
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" data-tooltip-title="Theme Mode" data-tooltip="Switch between dark and light appearance modes">&#9681;</button>
     </div>
   </div>
 
@@ -453,18 +488,18 @@ DASHBOARD_HTML = r"""<!doctype html>
       <div class="section-title">Providers</div>
       <div id="providers-list"></div>
       <div style="margin-top:16px">
-        <button class="btn btn-primary btn-sm" onclick="showView('connect')" style="width:100%">
+        <button class="btn btn-primary btn-sm" onclick="showView('connect')" style="width:100%" data-tooltip-title="Add Provider" data-tooltip="Connect paid subscription sessions or configure API keys">
           + Connect Provider
         </button>
       </div>
       <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border)">
         <div class="section-title" style="margin-bottom:8px">Safe Storage</div>
-        <div id="storage-info" style="font-size:11px; color:var(--fg2); line-height:1.5; margin-bottom:10px">
+        <div id="storage-info" style="font-size:11px; color:var(--fg2); line-height:1.5; margin-bottom:10px" data-tooltip-title="Encrypted Vault" data-tooltip="PBKDF2 + AES/XOR encrypted credential vault restricted to owner-only (0600) permissions">
           <div><span style="color:var(--fg)">File:</span> <code>~/.oma/credentials.json</code></div>
           <div><span style="color:var(--fg)">Mode:</span> <code>0600 (owner-only)</code></div>
           <div><span style="color:var(--fg)">Encrypted:</span> PBKDF2 + XOR</div>
         </div>
-        <button class="btn btn-sm btn-ghost" onclick="flushAllCredentials()" style="width:100%; color:#f85149; border-color:#f8514944" title="Securely wipe all stored credentials from disk">
+        <button class="btn btn-sm btn-ghost" onclick="flushAllCredentials()" style="width:100%; color:#f85149; border-color:#f8514944" title="Securely wipe all stored credentials from disk" data-tooltip-title="Flush All Credentials" data-tooltip="Permanently delete all stored credentials and session tokens from disk">
           &#128465; Flush Credentials
         </button>
       </div>
@@ -480,7 +515,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         </p>
 
         <!-- Claude -->
-        <div class="connect-card" id="cc-claude">
+        <div class="connect-card" id="cc-claude" data-tooltip-title="Claude Subscription" data-tooltip="Connect claude.ai Pro, Team, or Enterprise subscription via browser session cookie">
           <div class="connect-header" onclick="toggleConnect('claude')">
             <div class="connect-left">
               <div class="connect-icon" style="background:#d97706">C</div>
@@ -501,8 +536,8 @@ DASHBOARD_HTML = r"""<!doctype html>
               <div style="display:flex; gap:6px; margin-top:8px; align-items:center">
                 <code id="cmd-claude" style="flex:1; display:block; padding:8px 10px; background:var(--bg);
                   border:1px solid var(--border2); border-radius:4px; font-size:11px; white-space:nowrap;
-                  overflow-x:auto; user-select:all">document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('sessionKey='))?.split('=').slice(1).join('=')</code>
-                <button class="btn btn-sm btn-ghost" onclick="copyCmd('claude')" title="Copy command">&#128203;</button>
+                  overflow-x:auto; user-select:all" data-tooltip-title="Extraction Command" data-tooltip="JavaScript snippet to extract your Claude sessionKey from document.cookie">document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('sessionKey='))?.split('=').slice(1).join('=')</code>
+                <button class="btn btn-sm btn-ghost" onclick="copyCmd('claude')" title="Copy command" data-tooltip-title="Copy Script" data-tooltip="Copy the extraction snippet to your clipboard">&#128203;</button>
               </div>
               <details style="margin-top:10px; font-size:12px; color:var(--fg2)">
                 <summary style="cursor:pointer; color:var(--accent)">Manual method</summary>
@@ -513,15 +548,15 @@ DASHBOARD_HTML = r"""<!doctype html>
               </details>
             </div>
             <div class="token-row">
-              <input type="password" id="token-claude" placeholder="Paste sessionKey value here">
-              <button class="btn btn-primary" onclick="connectProvider('claude')">Connect</button>
+              <input type="password" id="token-claude" placeholder="Paste sessionKey value here" data-tooltip-title="Claude Cookie" data-tooltip="Paste sessionKey cookie extracted from claude.ai">
+              <button class="btn btn-primary" onclick="connectProvider('claude')" data-tooltip-title="Connect Claude" data-tooltip="Test token validity against Claude API and store encrypted credentials">Connect</button>
             </div>
             <div id="status-claude"></div>
           </div>
         </div>
 
         <!-- ChatGPT -->
-        <div class="connect-card" id="cc-chatgpt">
+        <div class="connect-card" id="cc-chatgpt" data-tooltip-title="ChatGPT Subscription" data-tooltip="Connect chatgpt.com Plus or Team subscription via session access token">
           <div class="connect-header" onclick="toggleConnect('chatgpt')">
             <div class="connect-left">
               <div class="connect-icon" style="background:#10a37f">G</div>
@@ -542,8 +577,8 @@ DASHBOARD_HTML = r"""<!doctype html>
               <div style="display:flex; gap:6px; margin-top:8px; align-items:center">
                 <code id="cmd-chatgpt" style="flex:1; display:block; padding:8px 10px; background:var(--bg);
                   border:1px solid var(--border2); border-radius:4px; font-size:11px; white-space:nowrap;
-                  overflow-x:auto; user-select:all">fetch('/api/auth/session').then(r=>r.json()).then(d=>console.log(d.accessToken))</code>
-                <button class="btn btn-sm btn-ghost" onclick="copyCmd('chatgpt')" title="Copy command">&#128203;</button>
+                  overflow-x:auto; user-select:all" data-tooltip-title="Extraction Command" data-tooltip="Fetch script to extract your ChatGPT accessToken from /api/auth/session">fetch('/api/auth/session').then(r=>r.json()).then(d=>console.log(d.accessToken))</code>
+                <button class="btn btn-sm btn-ghost" onclick="copyCmd('chatgpt')" title="Copy command" data-tooltip-title="Copy Script" data-tooltip="Copy the extraction snippet to your clipboard">&#128203;</button>
               </div>
               <details style="margin-top:10px; font-size:12px; color:var(--fg2)">
                 <summary style="cursor:pointer; color:var(--accent)">Manual method</summary>
@@ -554,15 +589,15 @@ DASHBOARD_HTML = r"""<!doctype html>
               </details>
             </div>
             <div class="token-row">
-              <input type="password" id="token-chatgpt" placeholder="Paste access token or session cookie">
-              <button class="btn btn-primary" onclick="connectProvider('chatgpt')">Connect</button>
+              <input type="password" id="token-chatgpt" placeholder="Paste access token or session cookie" data-tooltip-title="ChatGPT Access Token" data-tooltip="Paste accessToken or session cookie from chatgpt.com">
+              <button class="btn btn-primary" onclick="connectProvider('chatgpt')" data-tooltip-title="Connect ChatGPT" data-tooltip="Test token validity against ChatGPT backend API and store credentials">Connect</button>
             </div>
             <div id="status-chatgpt"></div>
           </div>
         </div>
 
         <!-- Gemini -->
-        <div class="connect-card" id="cc-gemini">
+        <div class="connect-card" id="cc-gemini" data-tooltip-title="Gemini Subscription" data-tooltip="Connect gemini.google.com Gemini Advanced subscription via Google session cookie">
           <div class="connect-header" onclick="toggleConnect('gemini')">
             <div class="connect-left">
               <div class="connect-icon" style="background:#4285f4">G</div>
@@ -583,8 +618,8 @@ DASHBOARD_HTML = r"""<!doctype html>
               <div style="display:flex; gap:6px; margin-top:8px; align-items:center">
                 <code id="cmd-gemini" style="flex:1; display:block; padding:8px 10px; background:var(--bg);
                   border:1px solid var(--border2); border-radius:4px; font-size:11px; white-space:nowrap;
-                  overflow-x:auto; user-select:all">document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('__Secure-1PSID='))?.split('=').slice(1).join('=')</code>
-                <button class="btn btn-sm btn-ghost" onclick="copyCmd('gemini')" title="Copy command">&#128203;</button>
+                  overflow-x:auto; user-select:all" data-tooltip-title="Extraction Command" data-tooltip="JavaScript snippet to extract your Google __Secure-1PSID cookie">document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('__Secure-1PSID='))?.split('=').slice(1).join('=')</code>
+                <button class="btn btn-sm btn-ghost" onclick="copyCmd('gemini')" title="Copy command" data-tooltip-title="Copy Script" data-tooltip="Copy the extraction snippet to your clipboard">&#128203;</button>
               </div>
               <details style="margin-top:10px; font-size:12px; color:var(--fg2)">
                 <summary style="cursor:pointer; color:var(--accent)">Manual method</summary>
@@ -595,8 +630,8 @@ DASHBOARD_HTML = r"""<!doctype html>
               </details>
             </div>
             <div class="token-row">
-              <input type="password" id="token-gemini" placeholder="Paste __Secure-1PSID value here">
-              <button class="btn btn-primary" onclick="connectProvider('gemini')">Connect</button>
+              <input type="password" id="token-gemini" placeholder="Paste __Secure-1PSID value here" data-tooltip-title="Gemini Cookie" data-tooltip="Paste __Secure-1PSID cookie extracted from gemini.google.com">
+              <button class="btn btn-primary" onclick="connectProvider('gemini')" data-tooltip-title="Connect Gemini" data-tooltip="Test session validity against Google Gemini and store credentials">Connect</button>
             </div>
             <div id="status-gemini"></div>
           </div>
@@ -608,7 +643,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           <p style="font-size:13px; color:var(--fg2); margin-bottom:12px">
             For providers without subscription login, or if you prefer direct API access.
           </p>
-          <div class="connect-card" id="cc-apikey">
+          <div class="connect-card" id="cc-apikey" data-tooltip-title="Direct API Keys" data-tooltip="Configure standard direct API keys for providers without subscription sessions">
             <div class="connect-header" onclick="toggleConnect('apikey')">
               <div class="connect-left">
                 <div class="connect-icon" style="background:var(--fg2)">&#128273;</div>
@@ -623,7 +658,7 @@ DASHBOARD_HTML = r"""<!doctype html>
               <div class="input-group" style="margin-bottom:10px">
                 <label>Provider</label>
                 <select id="apikey-provider" style="background:var(--bg); border:1px solid var(--border);
-                  border-radius:var(--radius-sm); padding:8px 12px; color:var(--fg); font-size:13px; outline:none;">
+                  border-radius:var(--radius-sm); padding:8px 12px; color:var(--fg); font-size:13px; outline:none;" data-tooltip-title="Provider Choice" data-tooltip="Choose which provider this API key belongs to">
                   <option value="claude">Claude</option>
                   <option value="chatgpt">ChatGPT / OpenAI</option>
                   <option value="gemini">Gemini</option>
@@ -633,8 +668,8 @@ DASHBOARD_HTML = r"""<!doctype html>
                 </select>
               </div>
               <div class="token-row">
-                <input type="password" id="apikey-value" placeholder="sk-... or API key">
-                <button class="btn btn-primary" onclick="connectApiKey()">Save</button>
+                <input type="password" id="apikey-value" placeholder="sk-... or API key" data-tooltip-title="API Key Value" data-tooltip="Enter provider secret key (sk-... or equivalent)">
+                <button class="btn btn-primary" onclick="connectApiKey()" data-tooltip-title="Save Key" data-tooltip="Encrypt and save API key into credentials vault">Save</button>
               </div>
               <div id="status-apikey"></div>
             </div>
@@ -646,7 +681,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       <div id="view-workflows" hidden style="max-width:none">
         <div class="wf-editor">
           <div class="wf-toolbar">
-            <select id="wf-template-select" onchange="loadTemplate(this.value)">
+            <select id="wf-template-select" onchange="loadTemplate(this.value)" data-tooltip-title="Workflow Templates" data-tooltip="Load preconfigured pipeline templates (Simple Agent, RAG, RALPH Loop, Map-Reduce)">
               <option value="">-- Load Template --</option>
               <option value="simple_agent">Simple Agent</option>
               <option value="multi_agent">Multi-Agent Pipeline</option>
@@ -658,80 +693,80 @@ DASHBOARD_HTML = r"""<!doctype html>
               <option value="map_reduce">Map-Reduce</option>
             </select>
             <div class="wf-toolbar-sep"></div>
-            <button class="btn btn-ghost" onclick="wfZoomIn()" title="Zoom in">+</button>
-            <button class="btn btn-ghost" onclick="wfZoomOut()" title="Zoom out">&minus;</button>
-            <button class="btn btn-ghost" onclick="wfFitView()" title="Fit to view">Fit</button>
+            <button class="btn btn-ghost" onclick="wfZoomIn()" title="Zoom in" data-tooltip-title="Zoom In" data-tooltip="Enlarge workflow canvas magnification (+)">+</button>
+            <button class="btn btn-ghost" onclick="wfZoomOut()" title="Zoom out" data-tooltip-title="Zoom Out" data-tooltip="Reduce workflow canvas magnification (-)">−</button>
+            <button class="btn btn-ghost" onclick="wfFitView()" title="Fit to view" data-tooltip-title="Fit to View" data-tooltip="Reset pan and zoom to fit entire graph on screen">Fit</button>
             <div class="wf-toolbar-sep"></div>
-            <button class="btn btn-ghost" onclick="wfDeleteSelected()" title="Delete selected">&#128465;</button>
-            <button class="btn btn-ghost" onclick="wfClearCanvas()" title="Clear all">Clear</button>
+            <button class="btn btn-ghost" onclick="wfDeleteSelected()" title="Delete selected" data-tooltip-title="Delete Selected" data-tooltip="Remove currently selected node or connection">&#128465;</button>
+            <button class="btn btn-ghost" onclick="wfClearCanvas()" title="Clear all" data-tooltip-title="Clear Canvas" data-tooltip="Clear all nodes and reset to empty graph">Clear</button>
             <div style="flex:1"></div>
-            <span class="wf-toolbar-label" id="wf-node-count">0 nodes</span>
+            <span class="wf-toolbar-label" id="wf-node-count" data-tooltip-title="Node Count" data-tooltip="Total number of nodes placed on the canvas">0 nodes</span>
             <div class="wf-toolbar-sep"></div>
-            <button class="btn btn-primary" onclick="wfRunWorkflow()" id="wf-run-btn">&#9654; Run</button>
-            <button class="btn btn-success" onclick="wfSaveWorkflow()">Save</button>
+            <button class="btn btn-primary" onclick="wfRunWorkflow()" id="wf-run-btn" data-tooltip-title="Run Workflow" data-tooltip="Execute workflow DAG across configured providers">&#9654; Run</button>
+            <button class="btn btn-success" onclick="wfSaveWorkflow()" data-tooltip-title="Save Workflow" data-tooltip="Persist workflow topology and configuration">Save</button>
           </div>
           <div class="wf-body">
             <div class="wf-palette">
               <div class="wf-palette-section">
                 <div class="wf-palette-title">Control</div>
-                <div class="wf-palette-node" draggable="true" data-node-type="start">
+                <div class="wf-palette-node" draggable="true" data-node-type="start" data-tooltip-title="Start Node" data-tooltip="Workflow entry point — initiates execution flow">
                   <div class="wf-palette-icon" style="background:var(--green)">&#9654;</div> Start
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="end">
+                <div class="wf-palette-node" draggable="true" data-node-type="end" data-tooltip-title="End Node" data-tooltip="Workflow terminal — finalizes execution outputs">
                   <div class="wf-palette-icon" style="background:var(--red)">&#9632;</div> End
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="branch">
+                <div class="wf-palette-node" draggable="true" data-node-type="branch" data-tooltip-title="Branch Node" data-tooltip="Conditional router — forks execution into multiple paths">
                   <div class="wf-palette-icon" style="background:var(--yellow)">&#8901;</div> Branch
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="merge">
+                <div class="wf-palette-node" draggable="true" data-node-type="merge" data-tooltip-title="Merge Node" data-tooltip="Synchronizer — joins parallel execution branches">
                   <div class="wf-palette-icon" style="background:var(--orange)">M</div> Merge
                 </div>
               </div>
               <div class="wf-palette-section">
                 <div class="wf-palette-title">Agents</div>
-                <div class="wf-palette-node" draggable="true" data-node-type="agent">
+                <div class="wf-palette-node" draggable="true" data-node-type="agent" data-tooltip-title="Agent Node" data-tooltip="Autonomous LLM agent executing tasks and reasoning">
                   <div class="wf-palette-icon" style="background:var(--accent2)">A</div> Agent
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="sub_agent">
+                <div class="wf-palette-node" draggable="true" data-node-type="sub_agent" data-tooltip-title="Sub-Agent Node" data-tooltip="Scoped delegate sub-agent for specialized subtasks">
                   <div class="wf-palette-icon" style="background:var(--purple)">S</div> Sub-Agent
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="ralph">
+                <div class="wf-palette-node" draggable="true" data-node-type="ralph" data-tooltip-title="RALPH Loop Node" data-tooltip="Iterative Reason-Act-Learn-Plan-Handoff convergence loop">
                   <div class="wf-palette-icon" style="background:#d97706">R</div> RALPH Loop
                 </div>
               </div>
               <div class="wf-palette-section">
                 <div class="wf-palette-title">RAG</div>
-                <div class="wf-palette-node" draggable="true" data-node-type="doc_loader">
+                <div class="wf-palette-node" draggable="true" data-node-type="doc_loader" data-tooltip-title="Doc Loader Node" data-tooltip="Loads documents, text, code, or knowledge files">
                   <div class="wf-palette-icon" style="background:#6366f1">D</div> Doc Loader
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="embedder">
+                <div class="wf-palette-node" draggable="true" data-node-type="embedder" data-tooltip-title="Embedder Node" data-tooltip="Computes vector embeddings for text and queries">
                   <div class="wf-palette-icon" style="background:#14b8a6">E</div> Embedder
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="vector_store">
+                <div class="wf-palette-node" draggable="true" data-node-type="vector_store" data-tooltip-title="Vector Store Node" data-tooltip="Stores and indexes high-dimensional vectors">
                   <div class="wf-palette-icon" style="background:#ec4899">V</div> Vector Store
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="retriever">
+                <div class="wf-palette-node" draggable="true" data-node-type="retriever" data-tooltip-title="Retriever Node" data-tooltip="Finds nearest-neighbor chunks relevant to query">
                   <div class="wf-palette-icon" style="background:#f59e0b">R</div> Retriever
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="generator">
+                <div class="wf-palette-node" draggable="true" data-node-type="generator" data-tooltip-title="Generator Node" data-tooltip="Synthesizes responses using retrieved context and prompt">
                   <div class="wf-palette-icon" style="background:var(--accent2)">G</div> Generator
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="memory">
+                <div class="wf-palette-node" draggable="true" data-node-type="memory" data-tooltip-title="Memory Node" data-tooltip="Maintains working and conversation memory across steps">
                   <div class="wf-palette-icon" style="background:#8b5cf6">M</div> Memory
                 </div>
               </div>
               <div class="wf-palette-section">
                 <div class="wf-palette-title">Tools</div>
-                <div class="wf-palette-node" draggable="true" data-node-type="llm_provider">
+                <div class="wf-palette-node" draggable="true" data-node-type="llm_provider" data-tooltip-title="LLM Provider Node" data-tooltip="Direct interface to Claude, ChatGPT, Gemini, etc.">
                   <div class="wf-palette-icon" style="background:#10a37f">L</div> LLM Provider
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="tool">
+                <div class="wf-palette-node" draggable="true" data-node-type="tool" data-tooltip-title="Tool Node" data-tooltip="Custom tool or shell execution hook">
                   <div class="wf-palette-icon" style="background:var(--fg2)">T</div> Tool
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="http">
+                <div class="wf-palette-node" draggable="true" data-node-type="http" data-tooltip-title="HTTP Node" data-tooltip="Makes HTTP REST / webhook requests">
                   <div class="wf-palette-icon" style="background:#0ea5e9">H</div> HTTP Request
                 </div>
-                <div class="wf-palette-node" draggable="true" data-node-type="code">
+                <div class="wf-palette-node" draggable="true" data-node-type="code" data-tooltip-title="Code Node" data-tooltip="Executes custom code snippet or transform logic">
                   <div class="wf-palette-icon" style="background:#64748b">&#60;/&#62;</div> Code
                 </div>
               </div>
@@ -756,11 +791,11 @@ DASHBOARD_HTML = r"""<!doctype html>
             <div class="wf-detail" id="wf-detail">
               <div class="wf-detail-title" id="wf-detail-title">Node</div>
               <label>Name</label>
-              <input id="wf-d-name" oninput="wfUpdateNodeProp('name', this.value)">
+              <input id="wf-d-name" oninput="wfUpdateNodeProp('name', this.value)" data-tooltip-title="Node Name" data-tooltip="Display label and identifier for this workflow node">
               <label>Type</label>
-              <input id="wf-d-type" disabled>
+              <input id="wf-d-type" disabled data-tooltip-title="Node Type" data-tooltip="Immutable node specification and port topology">
               <label>Provider</label>
-              <select id="wf-d-provider" onchange="wfUpdateNodeProp('provider', this.value)">
+              <select id="wf-d-provider" onchange="wfUpdateNodeProp('provider', this.value)" data-tooltip-title="Provider Assignment" data-tooltip="Pin node execution to a specific provider or use auto routing">
                 <option value="">auto</option>
                 <option value="claude">Claude</option>
                 <option value="chatgpt">ChatGPT</option>
@@ -770,11 +805,11 @@ DASHBOARD_HTML = r"""<!doctype html>
                 <option value="kimi">Kimi</option>
               </select>
               <label>System Prompt</label>
-              <textarea id="wf-d-system" oninput="wfUpdateNodeProp('system', this.value)" placeholder="Optional system prompt..."></textarea>
+              <textarea id="wf-d-system" oninput="wfUpdateNodeProp('system', this.value)" placeholder="Optional system prompt..." data-tooltip-title="System Prompt" data-tooltip="Custom system instructions injected when this node runs"></textarea>
               <label>Config (JSON)</label>
-              <textarea id="wf-d-config" oninput="wfUpdateNodeProp('config', this.value)" placeholder='{"temperature": 0.3}'></textarea>
+              <textarea id="wf-d-config" oninput="wfUpdateNodeProp('config', this.value)" placeholder='{"temperature": 0.3}' data-tooltip-title="Node Configuration" data-tooltip="Optional JSON configuration parameters (e.g. temperature, max_tokens)"></textarea>
               <div style="margin-top:14px">
-                <button class="btn btn-danger btn-sm" onclick="wfDeleteSelected()" style="width:100%">Delete Node</button>
+                <button class="btn btn-danger btn-sm" onclick="wfDeleteSelected()" style="width:100%" data-tooltip-title="Delete Node" data-tooltip="Permanently remove selected node and attached connections">Delete Node</button>
               </div>
             </div>
           </div>
@@ -786,13 +821,13 @@ DASHBOARD_HTML = r"""<!doctype html>
         <div class="card">
           <div class="card-header">
             <h2>Routing Engine</h2>
-            <span id="routing-mode-badge" class="badge badge-gray">embedded</span>
+            <span id="routing-mode-badge" class="badge badge-gray" data-tooltip-title="Routing Mode" data-tooltip="Current routing backend: Embedded local router or OmniRoute gateway">embedded</span>
           </div>
           <div class="card-body">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px">
               <div>
                 <label style="font-size:12px; color:var(--fg2)">Strategy</label>
-                <select id="routing-strategy" style="width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg); font-size:13px">
+                <select id="routing-strategy" style="width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg); font-size:13px" data-tooltip-title="Routing Strategy" data-tooltip="Provider selection algorithm: Auto (scoring), Priority, Weighted, Round Robin, P2C, Least Used, Cost Optimized, LKGP, Fusion, Pipeline">
                   <option value="auto">Auto (multi-factor scoring)</option>
                   <option value="priority">Priority (first available)</option>
                   <option value="weighted">Weighted random</option>
@@ -807,7 +842,7 @@ DASHBOARD_HTML = r"""<!doctype html>
               </div>
               <div>
                 <label style="font-size:12px; color:var(--fg2)">OmniRoute Gateway</label>
-                <div style="display:flex; align-items:center; gap:8px; padding:6px 0">
+                <div style="display:flex; align-items:center; gap:8px; padding:6px 0" data-tooltip-title="OmniRoute Gateway" data-tooltip="Integration status with external OmniRoute high-availability LLM gateway">
                   <span id="omniroute-status-dot" style="width:10px; height:10px; border-radius:50%; background:#666; display:inline-block"></span>
                   <span id="omniroute-status-text" style="font-size:13px; color:var(--fg2)">Not configured</span>
                 </div>
@@ -816,7 +851,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           </div>
         </div>
 
-        <div class="card">
+        <div class="card" data-tooltip-title="Circuit Breakers" data-tooltip="Fault-tolerance breakers monitoring provider errors, tripping open on failures to protect pipeline">
           <div class="card-header">
             <h2>Circuit Breakers</h2>
           </div>
@@ -830,7 +865,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         </div>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
-          <div class="card">
+          <div class="card" data-tooltip-title="Cost Tracking" data-tooltip="Real-time accounting of API requests, token consumption, and dollar costs">
             <div class="card-header">
               <h2>Cost Tracking</h2>
             </div>
@@ -853,7 +888,7 @@ DASHBOARD_HTML = r"""<!doctype html>
             </div>
           </div>
 
-          <div class="card">
+          <div class="card" data-tooltip-title="LKGP State" data-tooltip="Last Known Good Provider cache remembered across task types and modalities">
             <div class="card-header">
               <h2>LKGP State</h2>
             </div>
@@ -871,64 +906,64 @@ DASHBOARD_HTML = r"""<!doctype html>
         <div class="card">
           <div class="card-header">
             <h2>Task</h2>
-            <span id="task-badge" class="badge badge-gray">idle</span>
+            <span id="task-badge" class="badge badge-gray" data-tooltip-title="Task Status" data-tooltip="Execution state: idle, running, completed, or failed">idle</span>
           </div>
           <div class="card-body">
             <div class="task-input-area">
               <div class="input-group">
                 <label>Objective</label>
-                <textarea id="objective" placeholder="Describe what you want done...&#10;e.g., Analyze the top 10 HN posts today"></textarea>
+                <textarea id="objective" placeholder="Describe what you want done...&#10;e.g., Analyze the top 10 HN posts today" data-tooltip-title="Task Objective" data-tooltip="Goal or prompt for the autonomous agent to solve using available tools and providers"></textarea>
               </div>
               <div class="input-group">
                 <label>Criteria (optional JSON)</label>
-                <input type="text" id="criteria" placeholder='{"accuracy": true, "depth": 0.8}'>
+                <input type="text" id="criteria" placeholder='{"accuracy": true, "depth": 0.8}' data-tooltip-title="Acceptance Criteria" data-tooltip="Optional verification constraints and thresholds evaluated during the Learn phase">
               </div>
               <div class="task-actions">
-                <button class="btn btn-primary btn-lg" id="run-btn" onclick="runTask()">&#9654; Run</button>
-                <button class="btn btn-danger" id="stop-btn" onclick="stopTask()" disabled>&#9632; Stop</button>
+                <button class="btn btn-primary btn-lg" id="run-btn" onclick="runTask()" data-tooltip-title="Run Task" data-tooltip="Start RALPH convergence loop to execute and verify objective">&#9654; Run</button>
+                <button class="btn btn-danger" id="stop-btn" onclick="stopTask()" disabled data-tooltip-title="Stop Task" data-tooltip="Abort active task execution and park current iteration state">&#9632; Stop</button>
               </div>
             </div>
           </div>
         </div>
 
         <!-- RALPH Phase Stepper -->
-        <div class="card" id="ralph-card" hidden>
+        <div class="card" id="ralph-card" hidden data-tooltip-title="RALPH Loop" data-tooltip="Reason -> Act -> Learn -> Plan -> Handoff iterative convergence engine">
           <div class="card-header">
             <h2>RALPH Loop</h2>
-            <span id="ralph-iteration" class="badge badge-purple">iteration 0</span>
+            <span id="ralph-iteration" class="badge badge-purple" data-tooltip-title="Iteration Count" data-tooltip="Current loop iteration index">iteration 0</span>
           </div>
           <div class="card-body" style="padding:8px 16px 16px">
             <div class="ralph-stepper">
-              <div class="ralph-phase" id="rp-reason">
+              <div class="ralph-phase" id="rp-reason" data-tooltip-title="Reason Phase" data-tooltip="Analyzes current task context and determines optimal execution approach">
                 <div class="ralph-node idle" id="rn-reason">R</div>
                 <div class="ralph-label">Reason</div>
               </div>
               <div class="ralph-connector" id="rc-ra"></div>
-              <div class="ralph-phase" id="rp-act">
+              <div class="ralph-phase" id="rp-act" data-tooltip-title="Act Phase" data-tooltip="Dispatches tool calls and prompts to selected LLM provider">
                 <div class="ralph-node idle" id="rn-act">A</div>
                 <div class="ralph-label">Act</div>
               </div>
               <div class="ralph-connector" id="rc-al"></div>
-              <div class="ralph-phase" id="rp-learn">
+              <div class="ralph-phase" id="rp-learn" data-tooltip-title="Learn Phase" data-tooltip="Evaluates results against criteria, updates lessons learned, and computes confidence score">
                 <div class="ralph-node idle" id="rn-learn">L</div>
                 <div class="ralph-label">Learn</div>
               </div>
               <div class="ralph-connector" id="rc-lp"></div>
-              <div class="ralph-phase" id="rp-plan">
+              <div class="ralph-phase" id="rp-plan" data-tooltip-title="Plan Phase" data-tooltip="Adjusts execution plan and determines next steps based on lessons learned">
                 <div class="ralph-node idle" id="rn-plan">P</div>
                 <div class="ralph-label">Plan</div>
               </div>
               <div class="ralph-connector" id="rc-ph"></div>
-              <div class="ralph-phase" id="rp-handoff">
+              <div class="ralph-phase" id="rp-handoff" data-tooltip-title="Handoff Phase" data-tooltip="Prepares final deliverable or hands off to next iteration if criteria not yet met">
                 <div class="ralph-node idle" id="rn-handoff">H</div>
                 <div class="ralph-label">Handoff</div>
               </div>
             </div>
-            <div id="ralph-detail" style="font-size:12px; color:var(--fg2); text-align:center; margin-top:4px"></div>
+            <div id="ralph-detail" style="font-size:12px; color:var(--fg2); text-align:center; margin-top:4px" data-tooltip-title="Phase Activity" data-tooltip="Live status message of the active RALPH phase"></div>
           </div>
         </div>
 
-        <div class="card" id="progress-card" hidden>
+        <div class="card" id="progress-card" hidden data-tooltip-title="Confidence & Progress" data-tooltip="Convergence confidence percentage and step progression timeline">
           <div class="card-header">
             <h2>Progress</h2>
             <span id="progress-pct" style="font-family:var(--mono); font-size:12px; color:var(--fg2)">0%</span>
@@ -944,7 +979,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         <div class="card" id="result-card" hidden>
           <div class="card-header">
             <h2>Result</h2>
-            <button class="btn btn-sm btn-ghost" onclick="copyResult()">Copy</button>
+            <button class="btn btn-sm btn-ghost" onclick="copyResult()" data-tooltip-title="Copy Output" data-tooltip="Copy the complete formatted task result to your clipboard">Copy</button>
           </div>
           <div class="card-body">
             <div id="result-text" style="white-space:pre-wrap; font-size:13px; line-height:1.6;"></div>
@@ -954,7 +989,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         <div class="card">
           <div class="card-header">
             <h2>Log</h2>
-            <button class="btn btn-sm btn-ghost" onclick="clearLog()">Clear</button>
+            <button class="btn btn-sm btn-ghost" onclick="clearLog()" data-tooltip-title="Clear Logs" data-tooltip="Empty all entries from the execution activity log">Clear</button>
           </div>
           <div class="card-body" style="padding:0">
             <div class="log-area" id="log"></div>
@@ -1201,6 +1236,8 @@ function renderProviders(data) {
 
     html += `
       <div class="provider-card ${isConn ? 'connected' : 'disconnected'}"
+           data-tooltip-title="${escHtml(info.name)} Provider"
+           data-tooltip="${isConn ? 'Active session (' + escHtml(meta) + ') — click to disconnect' : 'Not connected — click to configure credentials'}"
            onclick="${isConn ? `disconnect('${name}')` : `showView('connect'); setTimeout(()=>{toggleConnect('${name}');document.getElementById('cb-${name}').classList.add('open')},50)`}">
         <div class="provider-top">
           <div style="display:flex; align-items:center; gap:8px">
@@ -1416,23 +1453,23 @@ function toggleTheme() {
 
 const NODE_W = 180, NODE_H = 64;
 const NODE_DEFS = {
-  start:        { label: 'Start',        icon: '▶', bg: '#3fb950', cat: 'control', ports: { in: 0, out: 1 } },
-  end:          { label: 'End',          icon: '■', bg: '#f85149', cat: 'control', ports: { in: 1, out: 0 } },
-  branch:       { label: 'Branch',       icon: '⋅', bg: '#d29922', cat: 'control', ports: { in: 1, out: 2 } },
-  merge:        { label: 'Merge',        icon: 'M',     bg: '#f0883e', cat: 'control', ports: { in: 2, out: 1 } },
-  agent:        { label: 'Agent',        icon: 'A',     bg: '#1f6feb', cat: 'agent',   ports: { in: 1, out: 1 } },
-  sub_agent:    { label: 'Sub-Agent',    icon: 'S',     bg: '#bc8cff', cat: 'agent',   ports: { in: 1, out: 1 } },
-  ralph:        { label: 'RALPH Loop',   icon: 'R',     bg: '#d97706', cat: 'agent',   ports: { in: 1, out: 1 } },
-  doc_loader:   { label: 'Doc Loader',   icon: 'D',     bg: '#6366f1', cat: 'rag',     ports: { in: 0, out: 1 } },
-  embedder:     { label: 'Embedder',     icon: 'E',     bg: '#14b8a6', cat: 'rag',     ports: { in: 1, out: 1 } },
-  vector_store: { label: 'Vector Store', icon: 'V',     bg: '#ec4899', cat: 'rag',     ports: { in: 1, out: 1 } },
-  retriever:    { label: 'Retriever',    icon: 'R',     bg: '#f59e0b', cat: 'rag',     ports: { in: 1, out: 1 } },
-  generator:    { label: 'Generator',    icon: 'G',     bg: '#1f6feb', cat: 'rag',     ports: { in: 1, out: 1 } },
-  memory:       { label: 'Memory',       icon: 'M',     bg: '#8b5cf6', cat: 'rag',     ports: { in: 1, out: 1 } },
-  llm_provider: { label: 'LLM Provider', icon: 'L',     bg: '#10a37f', cat: 'tool',    ports: { in: 1, out: 1 } },
-  tool:         { label: 'Tool',         icon: 'T',     bg: '#8b949e', cat: 'tool',    ports: { in: 1, out: 1 } },
-  http:         { label: 'HTTP Request', icon: 'H',     bg: '#0ea5e9', cat: 'tool',    ports: { in: 1, out: 1 } },
-  code:         { label: 'Code',         icon: '</>', bg: '#64748b', cat: 'tool',    ports: { in: 1, out: 1 } },
+  start:        { label: 'Start',        icon: '▶', bg: '#3fb950', cat: 'control', ports: { in: 0, out: 1 }, desc: 'Workflow entry point initiating DAG execution' },
+  end:          { label: 'End',          icon: '■', bg: '#f85149', cat: 'control', ports: { in: 1, out: 0 }, desc: 'Terminal node finalizing outputs and halting flow' },
+  branch:       { label: 'Branch',       icon: '⋅', bg: '#d29922', cat: 'control', ports: { in: 1, out: 2 }, desc: 'Conditional routing node splitting execution paths' },
+  merge:        { label: 'Merge',        icon: 'M',     bg: '#f0883e', cat: 'control', ports: { in: 2, out: 1 }, desc: 'Synchronizes and joins parallel execution branches' },
+  agent:        { label: 'Agent',        icon: 'A',     bg: '#1f6feb', cat: 'agent',   ports: { in: 1, out: 1 }, desc: 'Autonomous LLM agent executing tasks and reasoning' },
+  sub_agent:    { label: 'Sub-Agent',    icon: 'S',     bg: '#bc8cff', cat: 'agent',   ports: { in: 1, out: 1 }, desc: 'Specialized delegate agent executing scoped subtasks' },
+  ralph:        { label: 'RALPH Loop',   icon: 'R',     bg: '#d97706', cat: 'agent',   ports: { in: 1, out: 1 }, desc: 'Iterative Reason-Act-Learn-Plan-Handoff convergence loop' },
+  doc_loader:   { label: 'Doc Loader',   icon: 'D',     bg: '#6366f1', cat: 'rag',     ports: { in: 0, out: 1 }, desc: 'Ingests documents, text files, and unstructured knowledge' },
+  embedder:     { label: 'Embedder',     icon: 'E',     bg: '#14b8a6', cat: 'rag',     ports: { in: 1, out: 1 }, desc: 'Transforms text chunks into high-dimensional vector embeddings' },
+  vector_store: { label: 'Vector Store', icon: 'V',     bg: '#ec4899', cat: 'rag',     ports: { in: 1, out: 1 }, desc: 'Indexed vector database supporting semantic similarity queries' },
+  retriever:    { label: 'Retriever',    icon: 'R',     bg: '#f59e0b', cat: 'rag',     ports: { in: 1, out: 1 }, desc: 'Fetches top-k relevant knowledge chunks based on similarity' },
+  generator:    { label: 'Generator',    icon: 'G',     bg: '#1f6feb', cat: 'rag',     ports: { in: 1, out: 1 }, desc: 'Synthesizes grounded final answer from retrieved context' },
+  memory:       { label: 'Memory',       icon: 'M',     bg: '#8b5cf6', cat: 'rag',     ports: { in: 1, out: 1 }, desc: 'Short-term and long-term state persistence across pipeline steps' },
+  llm_provider: { label: 'LLM Provider', icon: 'L',     bg: '#10a37f', cat: 'tool',    ports: { in: 1, out: 1 }, desc: 'Direct provider model invocation gateway' },
+  tool:         { label: 'Tool',         icon: 'T',     bg: '#8b949e', cat: 'tool',    ports: { in: 1, out: 1 }, desc: 'Executes external CLI tools, functions, or shell commands' },
+  http:         { label: 'HTTP Request', icon: 'H',     bg: '#0ea5e9', cat: 'tool',    ports: { in: 1, out: 1 }, desc: 'Performs outbound HTTP REST / GraphQL requests' },
+  code:         { label: 'Code',         icon: '</>', bg: '#64748b', cat: 'tool',    ports: { in: 1, out: 1 }, desc: 'Sandboxed code execution environment' },
 };
 
 // ---- workflow templates ----
@@ -1747,6 +1784,8 @@ function wfRender() {
     el.setAttribute('class', 'wf-edge');
     el.setAttribute('stroke', 'var(--fg2)');
     el.setAttribute('marker-end', 'url(#wf-arrow)');
+    el.dataset.tooltipTitle = `Edge: ${fromNode.name} \u2192 ${toNode.name}`;
+    el.dataset.tooltip = 'Click edge to disconnect and remove link';
     el.addEventListener('click', () => {
       wfEdges.splice(idx, 1);
       wfRender();
@@ -1760,6 +1799,8 @@ function wfRender() {
     const ng = document.createElementNS(SVG_NS, 'g');
     ng.setAttribute('class', 'wf-svg-node' + (wfSelectedNode === node.id ? ' selected' : ''));
     ng.setAttribute('transform', `translate(${node.x},${node.y})`);
+    ng.dataset.tooltipTitle = `${node.name} (${def.label})`;
+    ng.dataset.tooltip = def.desc || `Workflow node (${def.cat})`;
 
     // body rect
     const rect = document.createElementNS(SVG_NS, 'rect');
@@ -1817,6 +1858,8 @@ function wfRender() {
       port.dataset.nodeId = node.id;
       port.dataset.portType = 'in';
       port.dataset.portIdx = i;
+      port.dataset.tooltipTitle = `${node.name}: Input Port ${i + 1}`;
+      port.dataset.tooltip = 'Drop a connection here from another node';
       ng.appendChild(port);
     }
 
@@ -1834,6 +1877,8 @@ function wfRender() {
       port.dataset.nodeId = node.id;
       port.dataset.portType = 'out';
       port.dataset.portIdx = i;
+      port.dataset.tooltipTitle = `${node.name}: Output Port ${i + 1}`;
+      port.dataset.tooltip = 'Click and drag to link to an input port';
       // start connection on pointerdown
       port.addEventListener('pointerdown', e => {
         e.stopPropagation();
@@ -2133,7 +2178,7 @@ function refreshRouting() {
         const state = b.state || 'closed';
         const color = BREAKER_COLORS[state] || '#666';
         const failPct = b.failure_threshold ? Math.round((b.failure_count || 0) / b.failure_threshold * 100) : 0;
-        return `<div style="border:1px solid var(--border); border-radius:8px; padding:12px; background:var(--bg2)">
+        return `<div style="border:1px solid var(--border); border-radius:8px; padding:12px; background:var(--bg2)" data-tooltip-title="Breaker: ${escHtml(pid)}" data-tooltip="State: ${state} | Failures: ${b.failure_count || 0}/${b.failure_threshold || 8} | Quota: ${p.quota_available ? 'OK' : 'Exhausted'} (${Math.round((p.quota_remaining_pct || 1) * 100)}%)">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
             <span style="font-weight:500; font-size:13px">${escHtml(pid)}</span>
             <span style="background:${color}; color:#fff; font-size:11px; padding:2px 8px; border-radius:10px">${state}</span>
@@ -2157,7 +2202,7 @@ function refreshRouting() {
     } else {
       tbody.innerHTML = pids.map(pid => {
         const p = providers[pid];
-        return `<tr style="border-bottom:1px solid var(--border)">
+        return `<tr style="border-bottom:1px solid var(--border)" data-tooltip-title="Cost Usage: ${escHtml(pid)}" data-tooltip="${p.requests || 0} requests, ${(p.total_tokens || 0).toLocaleString()} tokens, $${(p.total_cost || 0).toFixed(4)}">
           <td style="padding:6px 8px">${escHtml(pid)}</td>
           <td style="padding:6px 8px">${p.requests || 0}</td>
           <td style="padding:6px 8px">${(p.total_tokens || 0).toLocaleString()}</td>
@@ -2173,7 +2218,7 @@ function refreshRouting() {
       lkgpEl.innerHTML = 'No routing history yet';
     } else {
       lkgpEl.innerHTML = lkgpEntries.map(([task, provider]) =>
-        `<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border)">
+        `<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border)" data-tooltip-title="LKGP: ${escHtml(task)}" data-tooltip="Last known good provider for ${escHtml(task)}">
           <span style="color:var(--fg)">${escHtml(task)}</span>
           <span style="color:var(--accent)">${escHtml(String(provider))}</span>
         </div>`
@@ -2187,9 +2232,107 @@ setInterval(() => {
   if (!document.getElementById('view-routing').hidden) refreshRouting();
 }, 2000);
 
+// ---- tooltip engine ----
+let tooltipEl = null;
+let currentTooltipTarget = null;
+
+function findTooltipTarget(el) {
+  while (el && el !== document.body) {
+    if (el.dataset && (el.dataset.tooltip || el.dataset.tooltipTitle)) return el;
+    if (el.hasAttribute && (el.hasAttribute('data-tooltip') || el.hasAttribute('data-tooltip-title'))) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+function initTooltipEngine() {
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.id = 'oma-global-tooltip';
+    tooltipEl.className = 'oma-tooltip';
+    document.body.appendChild(tooltipEl);
+  }
+
+  document.addEventListener('mouseover', e => {
+    const target = findTooltipTarget(e.target);
+    if (!target) {
+      hideTooltip();
+      return;
+    }
+    if (target === currentTooltipTarget) return;
+    currentTooltipTarget = target;
+
+    if (target.hasAttribute('title') && target.getAttribute('title')) {
+      target.setAttribute('data-original-title', target.getAttribute('title'));
+      target.removeAttribute('title');
+    }
+
+    const title = target.getAttribute('data-tooltip-title') || '';
+    const desc = target.getAttribute('data-tooltip') || target.getAttribute('data-original-title') || '';
+    if (!title && !desc) {
+      hideTooltip();
+      return;
+    }
+
+    showTooltip(target, title, desc);
+  }, true);
+
+  document.addEventListener('mouseout', e => {
+    if (!currentTooltipTarget) return;
+    if (!e.relatedTarget || !currentTooltipTarget.contains(e.relatedTarget)) {
+      hideTooltip();
+    }
+  }, true);
+
+  window.addEventListener('scroll', () => { if (currentTooltipTarget) positionTooltip(currentTooltipTarget); }, true);
+  window.addEventListener('resize', () => { if (currentTooltipTarget) positionTooltip(currentTooltipTarget); });
+}
+
+function hideTooltip() {
+  if (tooltipEl) {
+    tooltipEl.classList.remove('visible');
+  }
+  if (currentTooltipTarget && currentTooltipTarget.hasAttribute('data-original-title')) {
+    currentTooltipTarget.setAttribute('title', currentTooltipTarget.getAttribute('data-original-title'));
+    currentTooltipTarget.removeAttribute('data-original-title');
+  }
+  currentTooltipTarget = null;
+}
+
+function showTooltip(target, title, desc) {
+  if (!tooltipEl) return;
+  let content = '';
+  if (title) content += `<div class="tt-title">${escHtml(title)}</div>`;
+  if (desc) content += `<div class="tt-desc">${escHtml(desc)}</div>`;
+  tooltipEl.innerHTML = content;
+  tooltipEl.classList.add('visible');
+  positionTooltip(target);
+}
+
+function positionTooltip(target) {
+  if (!target || !tooltipEl) return;
+  const rect = target.getBoundingClientRect();
+  const tipRect = tooltipEl.getBoundingClientRect();
+
+  let left = rect.left + (rect.width - tipRect.width) / 2;
+  let top = rect.top - tipRect.height - 8;
+
+  if (top < 10) {
+    top = rect.bottom + 8;
+  }
+
+  const maxLeft = window.innerWidth - tipRect.width - 12;
+  if (left < 12) left = 12;
+  if (left > maxLeft) left = maxLeft;
+
+  tooltipEl.style.left = Math.round(left) + 'px';
+  tooltipEl.style.top = Math.round(top) + 'px';
+}
+
 // ---- init ----
 (function init() {
   try { if (localStorage.getItem('oma-theme') === 'light') document.body.classList.add('light'); } catch(e) {}
+  initTooltipEngine();
   fetchStatus().then(() => {
     if (connectedCount === 0) showView('connect');
   });
@@ -2328,6 +2471,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     self._send_json({"runs": runs})
                 except Exception as e:
                     self._send_json({"runs": [], "error": str(e)})
+            else:
+                self._send_json({"runs": []})
         elif self.path == "/api/storage/info":
             if not self.auth_manager:
                 self._send_json({"error": "auth not initialized"}, 500)

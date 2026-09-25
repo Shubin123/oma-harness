@@ -96,7 +96,7 @@ export class CircuitBreaker {
     this.failureCount++;
     this.lastFailureTime = Date.now() / 1000;
 
-    if (immediateOpen || this.failureCount >= this.config.failure_threshold) {
+    if (immediateOpen || this.state === 'half_open' || this.failureCount >= this.config.failure_threshold) {
       if (this.state === 'half_open') {
         this.consecutiveRecoveryFailures++;
       }
@@ -193,8 +193,9 @@ export class QuotaManager {
 
   remainingPct(providerId: string): number {
     const entry = this.entries.get(providerId);
-    if (!entry || entry.total <= 0) return 1.0;
+    if (!entry) return 1.0;
     if (entry.exhausted) return 0.0;
+    if (entry.total <= 0) return 1.0;
     return Math.max(0, entry.remaining / entry.total);
   }
 
@@ -560,6 +561,10 @@ export class PipelineEngine {
     available: string[],
     context = '',
   ): Promise<[string, StageLog[]]> {
+    if (!available || available.length === 0) {
+      return ['', []];
+    }
+
     const stages = this.templates[taskType] ?? this.templates.general;
     const tierIdx: Record<string, number> = {
       best: 0,
@@ -711,8 +716,9 @@ export class Router {
     if (strat === 'weighted') return this._weighted(candidates);
 
     if (strat === 'round_robin') {
+      const selected = candidates[this._rrCounter % candidates.length];
       this._rrCounter++;
-      return candidates[this._rrCounter % candidates.length];
+      return selected;
     }
 
     if (strat === 'p2c') return this._p2c(candidates, hs, taskType);

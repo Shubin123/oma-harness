@@ -263,8 +263,15 @@ export class OMA {
         reasoning.approach = 'iterative';
       }
 
-      if (Object.keys(state.criteria).length > 0) {
-        reasoning.focus_areas = Object.keys(state.criteria).slice(0, 5);
+      if (state.criteria && Object.keys(state.criteria).length > 0) {
+        if (Array.isArray(state.criteria.criteria)) {
+          reasoning.focus_areas = (state.criteria.criteria as Array<{ name?: string }>)
+            .map(c => c?.name)
+            .filter((n): n is string => Boolean(n))
+            .slice(0, 5);
+        } else {
+          reasoning.focus_areas = Object.keys(state.criteria).slice(0, 5);
+        }
       }
 
       return reasoning;
@@ -289,14 +296,8 @@ export class OMA {
       }
 
       // track failures
-      if (lesson.succeeded) {
-        strategy.consecutive_failures = 0;
-      } else {
-        strategy.consecutive_failures++;
-      }
-
-      // too many failures
-      if (strategy.consecutive_failures >= 3) {
+      const currentFailures = lesson.succeeded ? 0 : strategy.consecutive_failures + 1;
+      if (currentFailures >= 3) {
         decision.action = 'park';
         decision.reason = 'consecutive_failures';
         return decision;
@@ -319,23 +320,24 @@ export class OMA {
         decision.reorder_providers = newChain;
       }
 
-      // approach notes
-      if (lesson.what_worked) {
-        strategy.approach_notes.push(lesson.what_worked);
-      } else if (lesson.what_failed) {
-        strategy.approach_notes.push(lesson.what_failed);
-      }
-
       decision.action = 'continue';
       decision.reason = 'iterating';
       return decision;
     };
 
     const handoffFn = async (state: TaskState): Promise<void> => {
+      let remainingFeatures: string[];
+      if (Array.isArray(state.criteria?.criteria)) {
+        remainingFeatures = (state.criteria.criteria as Array<{ name?: string }>)
+          .map(c => c?.name)
+          .filter((n): n is string => Boolean(n));
+      } else {
+        remainingFeatures = Object.keys(state.criteria || {});
+      }
       const note = nearOutageHandler(
         state,
         this.working,
-        Object.keys(state.criteria),
+        remainingFeatures,
       );
       this.persistent.appendHandoff(state.task_id, note.toPrompt());
       this.persistent.mergeWorking(state.task_id, this.working);
@@ -536,9 +538,18 @@ export class OMA {
 
     if (criteria && Object.keys(criteria).length > 0) {
       const outputLower = output.toLowerCase();
-      const keys = Object.keys(criteria);
-      const matched = keys.filter(key => outputLower.includes(key.toLowerCase())).length;
-      score += 0.45 * (matched / keys.length);
+      let keys: string[];
+      if (Array.isArray(criteria.criteria)) {
+        keys = (criteria.criteria as Array<{ name?: string }>)
+          .map(c => c?.name)
+          .filter((n): n is string => Boolean(n));
+      } else {
+        keys = Object.keys(criteria);
+      }
+      if (keys.length > 0) {
+        const matched = keys.filter(key => outputLower.includes(key.toLowerCase())).length;
+        score += 0.45 * (matched / keys.length);
+      }
     }
 
     return Math.min(score, 0.95);

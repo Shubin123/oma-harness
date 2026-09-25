@@ -110,7 +110,7 @@ class CircuitBreaker:
         self.failure_count += 1
         self.last_failure_time = time.time()
 
-        if immediate_open or self.failure_count >= self.failure_threshold:
+        if immediate_open or self.state == BreakerState.HALF_OPEN or self.failure_count >= self.failure_threshold:
             if self.state == BreakerState.HALF_OPEN:
                 self.consecutive_recovery_failures += 1
             self._transition(BreakerState.OPEN)
@@ -197,10 +197,12 @@ class QuotaManager:
 
     def remaining_pct(self, provider_id: str) -> float:
         entry = self.entries.get(provider_id)
-        if not entry or entry.total <= 0:
+        if not entry:
             return 1.0
         if entry.exhausted:
             return 0.0
+        if entry.total <= 0:
+            return 1.0
         return max(0.0, entry.remaining / entry.total)
 
 
@@ -625,6 +627,9 @@ class PipelineEngine:
         Returns:
             (best_output, stage_log)
         """
+        if not available:
+            return "", []
+
         stages = self.templates.get(task_type, self.templates["general"])
         tier_idx = {"best": 0, "moderate": len(available) // 2, "cheapest": -1}
 
@@ -784,8 +789,9 @@ class Router:
             return self._weighted(candidates)
 
         elif strat == RoutingStrategy.ROUND_ROBIN:
+            selected = candidates[self._rr_counter % len(candidates)]
             self._rr_counter += 1
-            return candidates[self._rr_counter % len(candidates)]
+            return selected
 
         elif strat == RoutingStrategy.POWER_OF_TWO:
             return self._p2c(candidates, health_stats, task_type)

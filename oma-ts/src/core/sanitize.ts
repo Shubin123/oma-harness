@@ -15,11 +15,11 @@ const ATTRIBUTION_PATTERNS: RegExp[] = [
   /co-authored-by:\s*claude[^\n]*/gi,
   /generated\s+(with|by)\s+claude[^\n]*/gi,
   /powered\s+by\s+(claude|anthropic)[^\n]*/gi,
-  /anthropic['']?s?\s+claude[^\n]*/gi,
+  /anthropic['’]?s?\s+claude[^\n]*/gi,
   /\bclaude\s+(ai|assistant|code|opus|sonnet|haiku|fable|mythos)\b/gi,
   /as\s+an?\s+ai\s+(language\s+)?model/gi,
   /as\s+an?\s+ai\s+assistant/gi,
-  /i['']m\s+claude\b/gi,
+  /i['’]m\s+claude\b/gi,
   // gemini/google
   /generated\s+(with|by)\s+gemini[^\n]*/gi,
   /powered\s+by\s+google\s+ai[^\n]*/gi,

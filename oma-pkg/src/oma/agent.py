@@ -260,7 +260,11 @@ class OMA:
                 reasoning.approach = "iterative"
 
             if state.criteria:
-                reasoning.focus_areas = list(state.criteria.keys())[:5]
+                if "criteria" in state.criteria and isinstance(state.criteria["criteria"], list):
+                    focus = [c["name"] for c in state.criteria["criteria"] if isinstance(c, dict) and "name" in c]
+                else:
+                    focus = list(state.criteria.keys())
+                reasoning.focus_areas = focus[:5]
 
             return reasoning
 
@@ -283,13 +287,8 @@ class OMA:
                 return decision
 
             # track failures
-            if lesson.succeeded:
-                strategy.consecutive_failures = 0
-            else:
-                strategy.consecutive_failures += 1
-
-            # too many failures
-            if strategy.consecutive_failures >= 3:
+            current_failures = 0 if lesson.succeeded else strategy.consecutive_failures + 1
+            if current_failures >= 3:
                 decision.action = "park"
                 decision.reason = "consecutive_failures"
                 return decision
@@ -306,21 +305,19 @@ class OMA:
             if new_chain and new_chain != strategy.provider_order:
                 decision.reorder_providers = new_chain
 
-            # approach notes
-            if lesson.what_worked:
-                strategy.approach_notes.append(lesson.what_worked)
-            elif lesson.what_failed:
-                strategy.approach_notes.append(lesson.what_failed)
-
             decision.action = "continue"
             decision.reason = "iterating"
             return decision
 
         def handoff_fn(state: TaskState):
+            if "criteria" in state.criteria and isinstance(state.criteria["criteria"], list):
+                remaining_features = [c["name"] for c in state.criteria["criteria"] if isinstance(c, dict) and "name" in c]
+            else:
+                remaining_features = list(state.criteria.keys())
             note = near_outage_handler(
                 task_state=state,
                 working_memory=self.working,
-                remaining_features=list(state.criteria.keys()),
+                remaining_features=remaining_features,
             )
             self.persistent.append_handoff(
                 task_id=state.task_id,
@@ -534,11 +531,16 @@ class OMA:
 
         if criteria:
             output_lower = output.lower()
-            matched = sum(
-                1 for key in criteria
-                if key.lower() in output_lower
-            )
-            score += 0.45 * (matched / len(criteria))
+            if "criteria" in criteria and isinstance(criteria["criteria"], list):
+                keys = [c["name"] for c in criteria["criteria"] if isinstance(c, dict) and "name" in c]
+            else:
+                keys = list(criteria.keys())
+            if keys:
+                matched = sum(
+                    1 for key in keys
+                    if key.lower() in output_lower
+                )
+                score += 0.45 * (matched / len(keys))
 
         return min(score, 0.95)
 

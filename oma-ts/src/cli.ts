@@ -144,6 +144,25 @@ async function cmdAuth(args: string[]): Promise<void> {
     mgr.logout(provider);
     console.log(`Removed credential for ${provider}.`);
 
+  } else if (sub === 'verify') {
+    const provider = args[1]?.toLowerCase();
+    const providersToTest = provider ? [provider] : Object.keys(mgr.store.allProviders());
+    if (providersToTest.length === 0) {
+      console.log('No stored credentials to verify.');
+      return;
+    }
+    const { verifyToken: vToken } = await import('./gui/web.js');
+    for (const p of providersToTest) {
+      const cred = mgr.getCredential(p);
+      if (!cred) {
+        console.log(`  ${p}: No credential stored.`);
+        continue;
+      }
+      const [ok, detail] = await vToken(p, cred.value);
+      const icon = ok ? 'OK' : 'FAILED';
+      console.log(`  ${p}: ${icon} (${detail})`);
+    }
+
   } else if (sub === 'flush') {
     let provider: string | undefined;
     let includeMemory = false;

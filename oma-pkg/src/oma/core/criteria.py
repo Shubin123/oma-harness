@@ -47,7 +47,9 @@ class Criterion:
 
             elif self.ctype == CriterionType.THRESHOLD:
                 val = float(output) if not isinstance(output, (int, float)) else output
-                return 1.0 if val >= self.target else val / self.target
+                if self.target <= 0:
+                    return 1.0 if val >= self.target else 0.0
+                return max(0.0, min(1.0, float(val) / float(self.target)))
 
             elif self.ctype == CriterionType.CONTAINS:
                 text = str(output).lower()

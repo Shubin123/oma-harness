@@ -55,18 +55,26 @@ class HTTPProvider(Provider):
         self.rate_limiter.wait_if_needed(estimated_tokens=max_tokens)
 
         headers = self._headers_fn(self.api_key)
+        model = kwargs.get("model", self.model)
         body = self._body_fn(
             messages=messages,
             system=system,
-            model=kwargs.get("model", self.model),
+            model=model,
             max_tokens=max_tokens,
             temperature=temperature,
         )
 
+        endpoint = self.endpoint
+        if "{model}" in endpoint:
+            endpoint = endpoint.replace("{model}", model)
+        if self.name == "gemini" and self.api_key and "key=" not in endpoint:
+            separator = "&" if "?" in endpoint else "?"
+            endpoint = f"{endpoint}{separator}key={self.api_key}"
+
         t0 = time.time()
         try:
             req = urllib.request.Request(
-                self.endpoint,
+                endpoint,
                 data=json.dumps(body).encode("utf-8"),
                 headers=headers,
                 method="POST",

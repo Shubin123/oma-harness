@@ -61,7 +61,9 @@ export class Criterion {
         case CriterionType.THRESHOLD: {
           const val = Number(output);
           const tgt = Number(this.target);
-          return val >= tgt ? 1.0 : val / tgt;
+          if (isNaN(val)) return 0;
+          if (tgt <= 0) return val >= tgt ? 1.0 : 0.0;
+          return Math.max(0, Math.min(1, val / tgt));
         }
 
         case CriterionType.CONTAINS: {

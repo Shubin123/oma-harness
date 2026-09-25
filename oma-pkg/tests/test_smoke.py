@@ -8,6 +8,8 @@ can spin up and operate without exceptions.
 
 import http.server
 import json
+import os
+from pathlib import Path
 import subprocess
 import sys
 import threading
@@ -156,9 +158,12 @@ class TestDashboardSmoke:
 
 class TestCLISmoke:
     """Smoke test CLI subcommands."""
+    env = dict(os.environ)
+    src_dir = str(Path(__file__).resolve().parent.parent / "src")
+    env["PYTHONPATH"] = f"{src_dir}:{env.get('PYTHONPATH', '')}".rstrip(":")
 
     def test_cli_help_smoke(self):
-        res = subprocess.run([sys.executable, "-m", "oma.cli", "--help"], capture_output=True, text=True)
+        res = subprocess.run([sys.executable, "-m", "oma.cli", "--help"], capture_output=True, text=True, env=self.env)
         assert res.returncode == 0
         assert "run" in res.stdout
         assert "status" in res.stdout
@@ -166,14 +171,14 @@ class TestCLISmoke:
         assert "auth" in res.stdout
 
     def test_cli_auth_help_smoke(self):
-        res = subprocess.run([sys.executable, "-m", "oma.cli", "auth", "--help"], capture_output=True, text=True)
+        res = subprocess.run([sys.executable, "-m", "oma.cli", "auth", "--help"], capture_output=True, text=True, env=self.env)
         assert res.returncode == 0
         assert "add" in res.stdout
         assert "status" in res.stdout
         assert "remove" in res.stdout
 
     def test_cli_status_smoke(self):
-        res = subprocess.run([sys.executable, "-m", "oma.cli", "status"], capture_output=True, text=True)
+        res = subprocess.run([sys.executable, "-m", "oma.cli", "status"], capture_output=True, text=True, env=self.env)
         assert res.returncode == 0
         data = json.loads(res.stdout)
         assert "providers" in data
