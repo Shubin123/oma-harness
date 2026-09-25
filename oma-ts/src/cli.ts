@@ -261,6 +261,76 @@ async function cmdMemory(args: string[]): Promise<void> {
   }
 }
 
+async function cmdDemo(): Promise<void> {
+  console.log('='.repeat(70));
+  console.log('            OMA - Open Multi Agent Onboarding Demo');
+  console.log('='.repeat(70));
+  console.log('\nWelcome to OMA! This interactive walkthrough demonstrates how OMA');
+  console.log('coordinates multiple AI subscriptions and API keys with autonomous self-healing.\n');
+
+  console.log('[1/5] Core Architecture:');
+  console.log('  * Zero-markup side-channel: connects to personal subscription sessions');
+  console.log('    (Claude, ChatGPT, Gemini) or standard API keys (DeepSeek, GLM, Kimi).');
+  console.log('  * Encrypted vault: credentials stored locally in ~/.oma/credentials.json');
+  console.log('    with owner-only (0600) file permissions.');
+
+  console.log('\n[2/5] Initializing Provider Registry & Router:');
+  const { Router } = await import('./core/router.js');
+  const router = new Router({ strategy: 'auto' });
+  console.log(`  * Active routing strategy: '${router.strategy}'`);
+  const candidates = ['claude', 'gemini', 'deepseek'];
+  const chosen = router.select(candidates);
+  console.log(`  * Selected primary provider: ${chosen}`);
+
+  console.log('\n[3/5] Testing Resilience & Circuit Breaker:');
+  const { CircuitBreaker } = await import('./core/router.js');
+  const cb = new CircuitBreaker({
+    failure_threshold: 3,
+    degradation_pct: 0.5,
+    recovery_timeout_s: 0.1,
+    backoff_multiplier: 1.5,
+    max_backoff_multiplier: 5,
+  });
+  console.log('  * Simulating upstream rate-limit error on primary provider...');
+  cb.recordFailure(true);
+  console.log(`  * CircuitBreaker state: ${cb.state.toUpperCase()} (tripped on errors)`);
+  const fallback = candidates.filter(c => c !== chosen)[0];
+  console.log(`  * Router dynamic failover to next provider: ${fallback}`);
+  cb.state = 'half_open';
+  cb.recordSuccess();
+  console.log(`  * Self-healing probe succeeded -> Breaker restored: ${cb.state.toUpperCase()}`);
+
+  console.log('\n[4/5] Testing Output Sanitizer:');
+  const { Sanitizer } = await import('./core/sanitize.js');
+  const sanitizer = new Sanitizer();
+  const rawSample = "Anthropic's Claude generated this solution.\nVerified architecture \u2014 latency reduced: \u2018optimal\u2019.";
+  const cleanSample = sanitizer.run(rawSample);
+  console.log(`  * Raw input:\n    ${rawSample.replace(/\n/g, '\n    ')}`);
+  console.log(`  * Sanitized:\n    ${cleanSample.replace(/\n/g, '\n    ')}`);
+  console.log('  * Stripped provider fingerprints, straightened curly quotes, normalized em dashes.');
+
+  console.log('\n[5/5] Autonomous RALPH Execution (Simulated):');
+  console.log("  * Objective: 'Generate resilient multi-provider routing schema'");
+  console.log("  * Criteria: {'throughput': 'high', 'resilience': true}");
+  console.log('  * [REASON] Iteration 1: Decomposing criteria and planning execution...');
+  console.log('  * [ACT]    Attempt 1 via Claude -> candidate draft (confidence: 0.68)');
+  console.log('  * [LEARN]  Confidence 0.68 < threshold 0.85 -> Extracting failure notes...');
+  console.log('  * [PLAN]   Rotating provider preference to Gemini for iteration 2...');
+  console.log('  * [REASON] Iteration 2: Applying lessons learned from iteration 1...');
+  console.log('  * [ACT]    Attempt 2 via Gemini -> refined solution (confidence: 0.94)');
+  console.log('  * [LEARN]  Confidence 0.94 >= threshold 0.85 -> Criteria gates PASSED!');
+  console.log('  * [HANDOFF] Final verified artifact stored in memory.');
+
+  console.log('\n' + '='.repeat(70));
+  console.log('Onboarding Demo Complete!');
+  console.log('\nNext steps to get started:');
+  console.log('  * Web Dashboard:  oma web           (graphical UI with workflow studio)');
+  console.log('  * Add Credential: oma auth add <provider> <key_or_session>');
+  console.log('  * Verify Stored:  oma auth verify');
+  console.log('  * Run Task:       oma run "your objective here"');
+  console.log('='.repeat(70));
+}
+
 // ---- main ----
 
 function printHelp(): void {
@@ -291,7 +361,10 @@ Commands:
     --host HOST       Bind address (default: 127.0.0.1)
     --port PORT       Port number (default: 8384)
 
+  demo                Run interactive onboarding demo
   help                Show this help message
+
+Tip: New to OMA? Run 'oma demo' for a guided tour, or 'oma web' for the GUI dashboard.
 `);
 }
 
@@ -318,6 +391,9 @@ async function main(): Promise<void> {
       break;
     case 'web':
       await cmdWeb(rest);
+      break;
+    case 'demo':
+      await cmdDemo();
       break;
     case 'help':
     case '--help':

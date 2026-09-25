@@ -113,6 +113,9 @@ class TestDashboardSmoke:
                 html = resp.read().decode()
                 assert "OMA" in html
                 assert "Open Multi Agent" in html
+                assert 'id="onboarding-modal"' in html
+                assert 'id="btn-tour"' in html
+                assert "Step 1 of 5" in html
 
             # 2. GET /api/status
             with urllib.request.urlopen(f"{base_url}/api/status", timeout=3) as resp:
@@ -169,6 +172,7 @@ class TestCLISmoke:
         assert "status" in res.stdout
         assert "providers" in res.stdout
         assert "auth" in res.stdout
+        assert "demo" in res.stdout
 
     def test_cli_auth_help_smoke(self):
         res = subprocess.run([sys.executable, "-m", "oma.cli", "auth", "--help"], capture_output=True, text=True, env=self.env)
@@ -183,6 +187,14 @@ class TestCLISmoke:
         data = json.loads(res.stdout)
         assert "providers" in data
         assert "config" in data
+
+    def test_cli_demo_smoke(self):
+        res = subprocess.run([sys.executable, "-m", "oma.cli", "demo"], capture_output=True, text=True, env=self.env)
+        assert res.returncode == 0
+        assert "Onboarding Demo" in res.stdout
+        assert "Core Architecture" in res.stdout
+        assert "Autonomous RALPH Execution" in res.stdout
+        assert "Onboarding Demo Complete!" in res.stdout
 
 
 class TestHealthTrackingSmoke:

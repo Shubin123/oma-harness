@@ -145,3 +145,35 @@ test('smoke: PlatformCompat machineId and permissions', () => {
     assert.equal(expectedFilePerm, '0o600');
   }
 });
+
+test('smoke: CLI demo command executes successfully with full walkthrough', async () => {
+  const { execSync } = await import('node:child_process');
+  const demoOut = execSync('node dist/cli.js demo', { encoding: 'utf-8' });
+  assert.ok(demoOut.includes('OMA - Open Multi Agent Onboarding Demo'));
+  assert.ok(demoOut.includes('[1/5] Core Architecture'));
+  assert.ok(demoOut.includes('[5/5] Autonomous RALPH Execution'));
+  assert.ok(demoOut.includes('Onboarding Demo Complete!'));
+
+  const helpOut = execSync('node dist/cli.js', { encoding: 'utf-8' });
+  assert.ok(helpOut.includes('demo'));
+  assert.ok(helpOut.includes("Run 'oma demo'"));
+});
+
+test('smoke: Dashboard HTML includes onboarding modal and tour button', async () => {
+  const { createDashboardServer } = await import('./gui/web.js');
+  const server = createDashboardServer();
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+  const addr = server.address() as { port: number };
+
+  try {
+    const resp = await fetch(`http://127.0.0.1:${addr.port}/`);
+    assert.equal(resp.status, 200);
+    const html = await resp.text();
+    assert.ok(html.includes('id="onboarding-modal"'));
+    assert.ok(html.includes('id="btn-tour"'));
+    assert.ok(html.includes('Step 1 of 5'));
+    assert.ok(html.includes('oma_onboarding_completed'));
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});

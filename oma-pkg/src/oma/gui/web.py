@@ -465,6 +465,136 @@ DASHBOARD_HTML = r"""<!doctype html>
   .oma-tooltip .tt-desc {
     color: var(--fg2);
   }
+
+  /* ---- Onboarding Demo Modal ---- */
+  .onboarding-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(6px);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .onboarding-backdrop.open {
+    opacity: 1; pointer-events: auto;
+  }
+  .onboarding-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    width: 100%; max-width: 660px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    transform: scale(0.95);
+    transition: transform 0.25s ease;
+  }
+  .onboarding-backdrop.open .onboarding-card {
+    transform: scale(1);
+  }
+  .onboarding-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+  }
+  .onboarding-header-left {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .onboarding-step-badge {
+    background: rgba(88, 166, 255, 0.15);
+    color: var(--accent);
+    font-size: 11px; font-weight: 700;
+    padding: 3px 8px; border-radius: 12px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .onboarding-header h3 {
+    font-size: 15px; font-weight: 600; color: var(--fg);
+  }
+  .onboarding-close {
+    background: none; border: none; color: var(--fg2);
+    font-size: 20px; cursor: pointer; padding: 2px 6px;
+    border-radius: var(--radius-sm); transition: color 0.15s; line-height: 1;
+  }
+  .onboarding-close:hover { color: var(--fg); background: var(--bg); }
+  .onboarding-body {
+    padding: 22px;
+    min-height: 290px;
+    display: flex; flex-direction: column;
+    justify-content: space-between;
+  }
+  .onboarding-slide {
+    display: none; animation: fadeIn 0.2s ease-in-out;
+  }
+  .onboarding-slide.active {
+    display: block;
+  }
+  .onboarding-hero {
+    display: flex; align-items: flex-start; gap: 16px; margin-bottom: 14px;
+  }
+  .onboarding-hero-icon {
+    font-size: 28px; width: 52px; height: 52px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(88, 166, 255, 0.1); border: 1px solid rgba(88, 166, 255, 0.25);
+    flex-shrink: 0;
+  }
+  .onboarding-hero-text h4 {
+    font-size: 17px; font-weight: 700; color: var(--fg); margin-bottom: 5px;
+  }
+  .onboarding-hero-text p {
+    font-size: 13px; color: var(--fg2); line-height: 1.5;
+  }
+  .onboarding-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px;
+    margin: 14px 0;
+  }
+  .onboarding-feature-item {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 12px;
+  }
+  .onboarding-feature-item .title {
+    font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .onboarding-feature-item .desc {
+    font-size: 11px; color: var(--fg2); line-height: 1.35;
+  }
+  .onboarding-highlight-box {
+    background: rgba(88, 166, 255, 0.06); border: 1px solid rgba(88, 166, 255, 0.2);
+    border-radius: var(--radius-sm); padding: 10px 14px; margin-top: 10px;
+    font-size: 12px; color: var(--fg); line-height: 1.45;
+  }
+  .onboarding-highlight-box code {
+    font-family: var(--mono); background: var(--bg); padding: 1px 4px; border-radius: 3px; font-size: 11px;
+  }
+  .onboarding-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 22px;
+    border-top: 1px solid var(--border);
+    background: var(--card);
+  }
+  .onboarding-footer-left {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .onboarding-dots {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .onboarding-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border); cursor: pointer; transition: all 0.2s;
+  }
+  .onboarding-dot.active {
+    width: 22px; border-radius: 4px; background: var(--accent);
+  }
+  .onboarding-footer-right {
+    display: flex; gap: 8px; align-items: center;
+  }
+  .onboarding-checkbox-label {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--fg2); cursor: pointer; user-select: none;
+  }
 </style>
 </head>
 <body>
@@ -478,6 +608,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         <button class="nav-tab" onclick="showView('connect')" id="nav-connect" data-tooltip-title="Provider Setup" data-tooltip="Connect subscription sessions (Claude, ChatGPT, Gemini) or enter API keys">Connect</button>
         <button class="nav-tab" onclick="showView('routing')" id="nav-routing" data-tooltip-title="Routing Engine" data-tooltip="Multi-strategy routing engine, self-healing circuit breakers, and cost analytics">Routing</button>
       </div>
+      <button class="btn btn-sm btn-ghost" onclick="openOnboarding(0)" id="btn-tour" style="display:flex; align-items:center; gap:5px; padding:3px 9px; font-size:12px;" data-tooltip-title="Quick Tour" data-tooltip="Start or replay the guided onboarding walkthrough and live demo">&#9654; Tour</button>
       <span id="conn-status" class="badge badge-gray" data-tooltip-title="Active Providers" data-tooltip="Number of configured and ready model providers available for execution">0 providers</span>
       <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" data-tooltip-title="Theme Mode" data-tooltip="Switch between dark and light appearance modes">&#9681;</button>
     </div>
@@ -995,6 +1126,179 @@ DASHBOARD_HTML = r"""<!doctype html>
             <div class="log-area" id="log"></div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Onboarding Demo Modal -->
+<div id="onboarding-modal" class="onboarding-backdrop" onclick="onboardingBackdropClick(event)">
+  <div class="onboarding-card">
+    <div class="onboarding-header">
+      <div class="onboarding-header-left">
+        <span class="onboarding-step-badge" id="onboard-step-badge">Step 1 of 5</span>
+        <h3 id="onboard-header-title">Welcome to OMA</h3>
+      </div>
+      <button class="onboarding-close" onclick="closeOnboarding(true)" title="Close Walkthrough">&times;</button>
+    </div>
+    <div class="onboarding-body" id="onboard-body">
+      <!-- Slide 0: Welcome -->
+      <div class="onboarding-slide active" id="onboard-slide-0">
+        <div class="onboarding-hero">
+          <div class="onboarding-hero-icon">&#128640;</div>
+          <div class="onboarding-hero-text">
+            <h4>Autonomous Multi-Agent Harness</h4>
+            <p>Coordinate Claude, ChatGPT, Gemini, DeepSeek, and custom models in a unified, local-first execution environment with zero API markup.</p>
+          </div>
+        </div>
+        <div class="onboarding-grid">
+          <div class="onboarding-feature-item">
+            <div class="title">&#128260; RALPH Loop</div>
+            <div class="desc">Reason, Act, Learn, Plan, Handoff loop with self-correcting multi-attempt convergence.</div>
+          </div>
+          <div class="onboarding-feature-item">
+            <div class="title">&#128272; Zero Markup</div>
+            <div class="desc">Connect directly to your personal web subscription sessions or private API keys.</div>
+          </div>
+          <div class="onboarding-feature-item">
+            <div class="title">&#9889; Resilient Routing</div>
+            <div class="desc">10 smart routing strategies, self-healing circuit breakers, and cost accounting.</div>
+          </div>
+        </div>
+        <div class="onboarding-highlight-box">
+          &#10024; This quick tour will introduce model connections, visual workflows, smart routing, and let you run an interactive demo.
+        </div>
+      </div>
+
+      <!-- Slide 1: Connect -->
+      <div class="onboarding-slide" id="onboard-slide-1">
+        <div class="onboarding-hero">
+          <div class="onboarding-hero-icon">&#128274;</div>
+          <div class="onboarding-hero-text">
+            <h4>Connect Subscriptions &amp; Keys</h4>
+            <p>Authenticate with zero vendor lock-in. Use your web subscriptions or enter standard API keys.</p>
+          </div>
+        </div>
+        <div class="onboarding-grid">
+          <div class="onboarding-feature-item">
+            <div class="title">&#127760; Sessional Cookies</div>
+            <div class="desc">Claude (<code>sessionKey</code>), ChatGPT (<code>session-token</code>), Gemini (<code>SNlM0e</code>).</div>
+          </div>
+          <div class="onboarding-feature-item">
+            <div class="title">&#128477; Direct API Keys</div>
+            <div class="desc">OpenAI, Anthropic, DeepSeek, GLM, Moonshot Kimi, and OmniRoute gateway.</div>
+          </div>
+          <div class="onboarding-feature-item">
+            <div class="title">&#128737; Encrypted Vault</div>
+            <div class="desc">Owner-only (0600) local storage in <code>~/.oma/credentials.json</code>. Wipeable anytime.</div>
+          </div>
+        </div>
+        <div class="onboarding-highlight-box">
+          &#128161; Head to the <strong>Connect</strong> tab to configure your accounts, or enter keys via CLI with <code>oma auth add &lt;provider&gt; &lt;key&gt;</code>.
+        </div>
+      </div>
+
+      <!-- Slide 2: Workflows -->
+      <div class="onboarding-slide" id="onboard-slide-2">
+        <div class="onboarding-hero">
+          <div class="onboarding-hero-icon">&#127912;</div>
+          <div class="onboarding-hero-text">
+            <h4>Visual Workflow Studio (DAGs)</h4>
+            <p>Compose custom multi-agent architectures visually on a freeform SVG canvas with draggable nodes and ports.</p>
+          </div>
+        </div>
+        <div class="onboarding-grid">
+          <div class="onboarding-feature-item">
+            <div class="title">&#129513; 8 Node Types</div>
+            <div class="desc">Agent, LLM Provider, Router, Sanitizer, Memory, Tool, Evaluator, and Condition nodes.</div>
+          </div>
+          <div class="onboarding-feature-item">
+            <div class="title">&#128203; Built-in Templates</div>
+            <div class="desc">RAG (Conversational &amp; Multi-Source), Multi-Agent Pipeline, Map-Reduce, and RALPH Loop.</div>
+          </div>
+          <div class="onboarding-feature-item">
+            <div class="title">&#128640; Live Execution</div>
+            <div class="desc">Run workflows directly with real-time visual step updates or export to JSON for sharing.</div>
+          </div>
+        </div>
+        <div class="onboarding-highlight-box">
+          &#128161; Check the <strong>Workflows</strong> tab toolbar templates dropdown to instantly instantiate pre-built pipelines.
+        </div>
+      </div>
+
+      <!-- Slide 3: Routing -->
+      <div class="onboarding-slide" id="onboard-slide-3">
+        <div class="onboarding-hero">
+          <div class="onboarding-hero-icon">&#9889;</div>
+          <div class="onboarding-hero-text">
+            <h4>Intelligent Routing &amp; Fault Tolerance</h4>
+            <p>Automatically distribute workload across models and heal gracefully during rate limits or outages.</p>
+          </div>
+        </div>
+        <div class="onboarding-grid">
+          <div class="onboarding-feature-item">
+            <div class="title">&#128256; 10 Strategies</div>
+            <div class="desc">Priority, Weighted, Round-Robin, P2C, Least-Used, Cost-Optimized, LKGP, Auto, Fusion, Pipeline.</div>
+          </div>
+          <div class="onboarding-feature-item">
+            <div class="title">&#128295; Circuit Breakers</div>
+            <div class="desc">Auto-trips on repeated errors, probes via Half-Open state, and restores when healthy.</div>
+          </div>
+          <div class="onboarding-feature-item">
+            <div class="title">&#128202; Cost &amp; Quota Tracking</div>
+            <div class="desc">Real-time ledger tracking input/output tokens and expenditure per provider.</div>
+          </div>
+        </div>
+        <div class="onboarding-highlight-box">
+          &#128161; The <strong>Routing</strong> tab displays live health indicators, active circuit breakers, and cost analytics.
+        </div>
+      </div>
+
+      <!-- Slide 4: Task & Demo -->
+      <div class="onboarding-slide" id="onboard-slide-4">
+        <div class="onboarding-hero">
+          <div class="onboarding-hero-icon">&#129302;</div>
+          <div class="onboarding-hero-text">
+            <h4>Autonomous RALPH Execution</h4>
+            <p>Watch OMA reason through objectives, learn from intermediate evaluations, and adapt plans until goals are met.</p>
+          </div>
+        </div>
+        <div class="onboarding-grid">
+          <div class="onboarding-feature-item">
+            <div class="title">&#129504; Reason &amp; Act</div>
+            <div class="desc">Analyzes criteria, selects provider strategy, and executes candidate solution.</div>
+          </div>
+          <div class="onboarding-feature-item">
+            <div class="title">&#129327; Learn &amp; Plan</div>
+            <div class="desc">Scores output, records lessons, and dynamically reorders provider fallback chains.</div>
+          </div>
+          <div class="onboarding-feature-item">
+            <div class="title">&#128075; Handoff</div>
+            <div class="desc">Parks gracefully on budget exhaustion or emits final verified output artifact.</div>
+          </div>
+        </div>
+        <div class="onboarding-highlight-box" style="background:rgba(63,185,80,0.1); border-color:rgba(63,185,80,0.3);">
+          &#128640; <strong>Ready to see it in action?</strong> Click <strong>Run Interactive Demo</strong> below to experience a live simulated RALPH execution right now!
+        </div>
+      </div>
+    </div>
+    <div class="onboarding-footer">
+      <div class="onboarding-footer-left">
+        <div class="onboarding-dots" id="onboard-dots">
+          <div class="onboarding-dot active" onclick="goToOnboardingStep(0)"></div>
+          <div class="onboarding-dot" onclick="goToOnboardingStep(1)"></div>
+          <div class="onboarding-dot" onclick="goToOnboardingStep(2)"></div>
+          <div class="onboarding-dot" onclick="goToOnboardingStep(3)"></div>
+          <div class="onboarding-dot" onclick="goToOnboardingStep(4)"></div>
+        </div>
+        <label class="onboarding-checkbox-label">
+          <input type="checkbox" id="onboard-dont-show" checked> Don't show again
+        </label>
+      </div>
+      <div class="onboarding-footer-right">
+        <button class="btn btn-sm btn-ghost" onclick="closeOnboarding(true)" id="onboard-btn-skip">Skip Tour</button>
+        <button class="btn btn-sm btn-ghost" onclick="prevOnboardingStep()" id="onboard-btn-prev" disabled>Back</button>
+        <button class="btn btn-sm btn-primary" onclick="nextOnboardingStep()" id="onboard-btn-next">Next</button>
       </div>
     </div>
   </div>
@@ -2329,10 +2633,252 @@ function positionTooltip(target) {
   tooltipEl.style.top = Math.round(top) + 'px';
 }
 
+// ---- Onboarding & Demo Engine ----
+let currentOnboardStep = 0;
+const TOTAL_ONBOARD_STEPS = 5;
+
+function checkOnboarding() {
+  try {
+    if (!localStorage.getItem('oma_onboarding_completed')) {
+      setTimeout(function() {
+        openOnboarding(0);
+      }, 450);
+    }
+  } catch (e) {}
+}
+
+function openOnboarding(step) {
+  if (typeof step !== 'number') step = 0;
+  currentOnboardStep = Math.max(0, Math.min(TOTAL_ONBOARD_STEPS - 1, step));
+  renderOnboardingStep();
+  const modal = document.getElementById('onboarding-modal');
+  if (modal) modal.classList.add('open');
+}
+
+function closeOnboarding(savePreference) {
+  const modal = document.getElementById('onboarding-modal');
+  if (modal) modal.classList.remove('open');
+  if (savePreference) {
+    try {
+      const chk = document.getElementById('onboard-dont-show');
+      if (!chk || chk.checked) {
+        localStorage.setItem('oma_onboarding_completed', '1');
+      }
+    } catch (e) {}
+  }
+}
+
+function onboardingBackdropClick(e) {
+  if (e.target && e.target.id === 'onboarding-modal') {
+    closeOnboarding(true);
+  }
+}
+
+function goToOnboardingStep(step) {
+  currentOnboardStep = step;
+  renderOnboardingStep();
+}
+
+function prevOnboardingStep() {
+  if (currentOnboardStep > 0) {
+    currentOnboardStep--;
+    renderOnboardingStep();
+  }
+}
+
+function nextOnboardingStep() {
+  if (currentOnboardStep < TOTAL_ONBOARD_STEPS - 1) {
+    currentOnboardStep++;
+    renderOnboardingStep();
+  } else {
+    startOnboardingDemo();
+  }
+}
+
+function renderOnboardingStep() {
+  const titles = [
+    'Welcome to OMA',
+    'Provider Connections',
+    'Visual Workflow Studio',
+    'Smart Routing & Fault Tolerance',
+    'Autonomous RALPH Task Runner'
+  ];
+  
+  const badgeEl = document.getElementById('onboard-step-badge');
+  const titleEl = document.getElementById('onboard-header-title');
+  if (badgeEl) badgeEl.textContent = 'Step ' + (currentOnboardStep + 1) + ' of ' + TOTAL_ONBOARD_STEPS;
+  if (titleEl) titleEl.textContent = titles[currentOnboardStep] || 'Welcome to OMA';
+
+  for (let i = 0; i < TOTAL_ONBOARD_STEPS; i++) {
+    const s = document.getElementById('onboard-slide-' + i);
+    if (s) {
+      if (i === currentOnboardStep) s.classList.add('active');
+      else s.classList.remove('active');
+    }
+  }
+
+  const dotsContainer = document.getElementById('onboard-dots');
+  if (dotsContainer) {
+    const dots = dotsContainer.querySelectorAll('.onboarding-dot');
+    dots.forEach((dot, idx) => {
+      if (idx === currentOnboardStep) dot.classList.add('active');
+      else dot.classList.remove('active');
+    });
+  }
+
+  const prevBtn = document.getElementById('onboard-btn-prev');
+  const nextBtn = document.getElementById('onboard-btn-next');
+  if (prevBtn) prevBtn.disabled = (currentOnboardStep === 0);
+  if (nextBtn) {
+    if (currentOnboardStep === TOTAL_ONBOARD_STEPS - 1) {
+      nextBtn.innerHTML = '&#9654; Run Interactive Demo';
+      nextBtn.className = 'btn btn-sm btn-primary';
+      nextBtn.style.background = 'var(--green)';
+      nextBtn.style.borderColor = 'var(--green)';
+    } else {
+      nextBtn.textContent = 'Next';
+      nextBtn.className = 'btn btn-sm btn-primary';
+      nextBtn.style.background = '';
+      nextBtn.style.borderColor = '';
+    }
+  }
+}
+
+function startOnboardingDemo() {
+  closeOnboarding(true);
+  showView('task');
+
+  const objEl = document.getElementById('task-objective');
+  const critEl = document.getElementById('task-criteria');
+  if (objEl) {
+    objEl.value = 'Analyze API architecture for high-throughput multi-provider LLM routing with automated circuit breaker failover and credential safety';
+  }
+  if (critEl) {
+    critEl.value = JSON.stringify({
+      throughput: "high",
+      resilience: true,
+      cost_optimized: true,
+      safety: "owner-only"
+    }, null, 2);
+  }
+
+  runInteractiveDemoSimulation();
+}
+
+function runInteractiveDemoSimulation() {
+  if (taskRunning) return;
+  taskRunning = true;
+
+  clearLog();
+  const resEl = document.getElementById('result-text');
+  if (resEl) resEl.textContent = '';
+  const btn = document.getElementById('btn-run');
+  const stopBtn = document.getElementById('btn-stop');
+  if (btn) btn.disabled = true;
+  if (stopBtn) stopBtn.disabled = false;
+
+  addLog('=== Starting OMA Interactive Onboarding Demo ===', 'info');
+  addLog('Task: High-throughput multi-provider routing with circuit breaker resilience', 'info');
+
+  const progressFill = document.getElementById('progress-fill');
+  const progressText = document.getElementById('progress-text');
+
+  updateRalphPhase('reason', 1, 'Analyzing objective, decomposing requirements, selecting primary provider');
+  if (progressFill) progressFill.style.width = '15%';
+  if (progressText) progressText.textContent = '15% -- Reasoning approach';
+  addLog('[REASON] Iteration 1: Decomposed objective into 4 criteria gates: throughput, resilience, cost_optimized, safety.', 'info');
+
+  setTimeout(function() {
+    updateRalphPhase('act', 1, 'Executing solve attempt via Claude (claude-sonnet-4)');
+    if (progressFill) progressFill.style.width = '35%';
+    if (progressText) progressText.textContent = '35% -- Act: generating draft';
+    addLog('[ACT] Querying primary provider Claude (claude-sonnet-4) with optimized context...', 'info');
+
+    setTimeout(function() {
+      updateRalphPhase('learn', 1, 'Evaluating candidate solution against criteria gates');
+      if (progressFill) progressFill.style.width = '55%';
+      if (progressText) progressText.textContent = '55% -- Learn: scoring criteria';
+      addLog('[LEARN] Solution evaluated: confidence 0.70 < threshold 0.85. Criteria "cost_optimized" requires more detail.', 'warn');
+
+      setTimeout(function() {
+        updateRalphPhase('plan', 1, 'Adapting strategy: rotating provider preference to Gemini for secondary validation');
+        if (progressFill) progressFill.style.width = '70%';
+        if (progressText) progressText.textContent = '70% -- Plan: adaptive fallback';
+        addLog('[PLAN] Strategy adjusted: Rotating provider chain [claude -> gemini] to prioritize cost optimization.', 'info');
+
+        setTimeout(function() {
+          updateRalphPhase('reason', 2, 'Refining prompt with attempt 1 lessons');
+          addLog('[REASON] Iteration 2: Focusing on cost accounting algorithms and circuit breaker backoff.', 'info');
+
+          setTimeout(function() {
+            updateRalphPhase('act', 2, 'Executing refined attempt via Gemini (gemini-2.0-flash)');
+            if (progressFill) progressFill.style.width = '85%';
+            if (progressText) progressText.textContent = '85% -- Act: refined solution';
+            addLog('[ACT] Querying Gemini (gemini-2.0-flash) with lesson-enriched context...', 'info');
+
+            setTimeout(function() {
+              updateRalphPhase('learn', 2, 'Confidence 0.94 >= threshold 0.85 -- all criteria satisfied!');
+              if (progressFill) progressFill.style.width = '95%';
+              if (progressText) progressText.textContent = '95% -- Learn: criteria met';
+              addLog('[LEARN] Evaluated attempt 2: confidence 0.94 >= threshold 0.85! All 4 criteria gates PASSED.', 'info');
+
+              setTimeout(function() {
+                updateRalphPhase('handoff', 2, 'Final verified artifact produced');
+                if (progressFill) progressFill.style.width = '100%';
+                if (progressText) progressText.textContent = '100% -- Complete';
+                addLog('[HANDOFF] Task completed successfully in 2 iterations (tokens used: 642, confidence: 94%).', 'info');
+
+                const sampleResult = [
+                  '# Multi-Provider Routing & Circuit Breaker Architecture',
+                  '',
+                  '## 1. Dynamic Routing Engine',
+                  '- Core Strategy: Power-of-Two-Choices (P2C) weighted by quality EMA and cost.',
+                  '- Fallback Chain: Claude -> Gemini -> DeepSeek.',
+                  '- LKGP (Last Known Good Provider) cached per task modality.',
+                  '',
+                  '## 2. Self-Healing Circuit Breaker',
+                  '- State Transitions: Closed (healthy) -> Degraded (warning) -> Open (tripped) -> Half-Open (probe).',
+                  '- Failure Threshold: 5 consecutive failures triggers exponential backoff.',
+                  '',
+                  '## 3. Credential Safety & Privacy',
+                  '- Storage: ~/.oma/credentials.json with POSIX 0600 owner-only permissions.',
+                  '- Encryption: PBKDF2 key derivation with AES/XOR cipher.',
+                  '- Zero telemetry / zero external proxying.'
+                ].join('\n');
+
+                if (resEl) resEl.textContent = sampleResult;
+
+                taskRunning = false;
+                if (btn) btn.disabled = false;
+                if (stopBtn) stopBtn.disabled = true;
+
+                addLog('=== Demo Finished! You are ready to connect providers and run your own tasks. ===', 'info');
+              }, 600);
+            }, 700);
+          }, 600);
+        }, 600);
+      }, 700);
+    }, 700);
+  }, 700);
+}
+
+document.addEventListener('keydown', function(e) {
+  const modal = document.getElementById('onboarding-modal');
+  if (!modal || !modal.classList.contains('open')) return;
+  if (e.key === 'Escape') {
+    closeOnboarding(true);
+  } else if (e.key === 'ArrowRight') {
+    nextOnboardingStep();
+  } else if (e.key === 'ArrowLeft') {
+    prevOnboardingStep();
+  }
+});
+
 // ---- init ----
 (function init() {
   try { if (localStorage.getItem('oma-theme') === 'light') document.body.classList.add('light'); } catch(e) {}
   initTooltipEngine();
+  checkOnboarding();
   fetchStatus().then(() => {
     if (connectedCount === 0) showView('connect');
   });
@@ -2362,11 +2908,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         pass
 
     def _send_json(self, data, status=200):
+        body = json.dumps(data).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
-        self.wfile.write(json.dumps(data).encode())
+        self.wfile.write(body)
 
     def _read_body(self) -> dict:
         length = int(self.headers.get("Content-Length", 0))
@@ -2381,10 +2929,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/" or self.path == "/index.html":
+            body = DASHBOARD_HTML.encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(DASHBOARD_HTML.encode())
+            self.wfile.write(body)
 
         elif self.path == "/api/status":
             status = {}

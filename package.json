@@ -1,0 +1,13 @@
+{
+  "name": "oma-workspace",
+  "version": "0.2.1",
+  "description": "OMA - Open Multi Agent Harness",
+  "private": true,
+  "scripts": {
+    "start": "python3 run.py --serve",
+    "test": "python3 run.py",
+    "build": "python3 tools/build.py",
+    "demo": "python3 run.py --skip-tests",
+    "all": "./run.sh"
+  }
+}

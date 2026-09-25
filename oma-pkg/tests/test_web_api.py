@@ -88,7 +88,7 @@ def test_server(mock_auth, mock_agent):
     DashboardHandler._workflows = {}
     DashboardHandler._last_result = None
 
-    server = HTTPServer(("127.0.0.1", 0), DashboardHandler)
+    server = ThreadedHTTPServer(("127.0.0.1", 0), DashboardHandler)
     host, port = server.server_address
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -98,6 +98,7 @@ def test_server(mock_auth, mock_agent):
 
     server.shutdown()
     server.server_close()
+    thread.join(timeout=1.0)
 
 
 def test_get_root_and_index(test_server):

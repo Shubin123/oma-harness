@@ -1,18 +1,25 @@
-.PHONY: all build build-py build-ts test test-py test-ts lint lint-py lint-ts \
+.PHONY: all run build-and-run demo serve build build-py build-ts test test-py test-ts lint lint-py lint-ts \
         typecheck-py clean release install install-py install-ts help
 
-# Every build target delegates to tools/build.py, which is the one build
-# implementation and runs the same way on Linux, macOS and Windows. On Windows,
-# where make is usually absent, run those commands directly:
-#     python tools/build.py --help
-
-PYTHON ?= python3
+# Detect python3.11 if available, fallback to python3
+PYTHON ?= $(shell if [ -x "/opt/homebrew/opt/python@3.11/bin/python3.11" ]; then echo "/opt/homebrew/opt/python@3.11/bin/python3.11"; elif which python3.11 >/dev/null 2>&1; then which python3.11; else which python3; fi)
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-all: build ## Build both binaries for this platform
+all: run ## Default: build and run everything in the project
+
+run: build-and-run ## Build and run everything in the project (TypeScript, Python, tests, demos, verification)
+
+build-and-run: ## Build and run everything in the project
+	$(PYTHON) tools/run_all.py
+
+demo: ## Run onboarding interactive demo
+	$(PYTHON) -m oma.cli demo
+
+serve: ## Build, test, and launch the web dashboard at http://localhost:8384
+	$(PYTHON) tools/run_all.py --serve
 
 # ---- build ----
 

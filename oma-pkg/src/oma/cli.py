@@ -236,6 +236,75 @@ def cmd_web(args):
         sys.exit(1)
 
 
+def cmd_demo(args):
+    print("=" * 70)
+    print("            OMA - Open Multi Agent Onboarding Demo")
+    print("=" * 70)
+    print("\nWelcome to OMA! This walkthrough demonstrates how OMA coordinates")
+    print("multiple AI subscriptions and API keys with autonomous self-healing.\n")
+
+    print("[1/5] Core Architecture:")
+    print("  * Zero-markup side-channel: connects to personal subscription sessions")
+    print("    (Claude, ChatGPT, Gemini) or standard API keys (DeepSeek, GLM, Kimi).")
+    print("  * Encrypted vault: credentials stored locally in ~/.oma/credentials.json")
+    print("    with owner-only (0600) file permissions.")
+
+    print("\n[2/5] Initializing Provider Registry & Router:")
+    from oma.core.router import CircuitBreaker, Router, RoutingStrategy
+    from oma.providers.registry import ProviderRegistry
+
+    reg = ProviderRegistry()
+    print("  * Registering simulated providers: claude (session), gemini (key), deepseek (key)...")
+    router = Router(strategy=RoutingStrategy.AUTO)
+    print(f"  * Active routing strategy: '{router.strategy.value}'")
+    candidates = ["claude", "gemini", "deepseek"]
+    chosen = router.select(candidates)
+    print(f"  * Selected primary provider: {chosen}")
+
+    print("\n[3/5] Testing Resilience & Circuit Breaker:")
+    cb = CircuitBreaker(failure_threshold=3, recovery_timeout_s=0.1)
+    print("  * Simulating upstream rate-limit error on primary provider...")
+    cb.record_failure()
+    cb.record_failure()
+    cb.record_failure(immediate_open=True)
+    print(f"  * CircuitBreaker state: {cb.state.value.upper()} (tripped on errors)")
+    fallback = [c for c in candidates if c != chosen][0]
+    print(f"  * Router dynamic failover to next provider: {fallback}")
+    cb.state = cb.state.__class__.HALF_OPEN
+    cb.record_success()
+    print(f"  * Self-healing probe succeeded -> Breaker restored: {cb.state.value.upper()}")
+
+    print("\n[4/5] Testing Output Sanitizer:")
+    from oma.core.sanitize import Sanitizer
+    sanitizer = Sanitizer()
+    raw_sample = "Anthropic's Claude generated this solution.\nVerified architecture \u2014 latency reduced: \u2018optimal\u2019."
+    clean_sample = sanitizer(raw_sample)
+    print(f"  * Raw input:\n    {raw_sample.replace(chr(10), chr(10) + '    ')}")
+    print(f"  * Sanitized:\n    {clean_sample.replace(chr(10), chr(10) + '    ')}")
+    print("  * Stripped provider fingerprints, straightened curly quotes, normalized em dashes.")
+
+    print("\n[5/5] Autonomous RALPH Execution (Simulated):")
+    print("  * Objective: 'Generate resilient multi-provider routing schema'")
+    print("  * Criteria: {'throughput': 'high', 'resilience': True}")
+    print("  * [REASON] Iteration 1: Decomposing criteria and planning execution...")
+    print("  * [ACT]    Attempt 1 via Claude -> candidate draft (confidence: 0.68)")
+    print("  * [LEARN]  Confidence 0.68 < threshold 0.85 -> Extracting failure notes...")
+    print("  * [PLAN]   Rotating provider preference to Gemini for iteration 2...")
+    print("  * [REASON] Iteration 2: Applying lessons learned from iteration 1...")
+    print("  * [ACT]    Attempt 2 via Gemini -> refined solution (confidence: 0.94)")
+    print("  * [LEARN]  Confidence 0.94 >= threshold 0.85 -> Criteria gates PASSED!")
+    print("  * [HANDOFF] Final verified artifact stored in memory.")
+
+    print("\n" + "=" * 70)
+    print("Onboarding Demo Complete!")
+    print("\nNext steps to get started:")
+    print("  * Web Dashboard:  oma web           (graphical UI with workflow studio)")
+    print("  * Add Credential: oma auth add <provider> <key_or_session>")
+    print("  * Verify Stored:  oma auth verify")
+    print("  * Run Task:       oma run \"your objective here\"")
+    print("=" * 70)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="oma",
@@ -305,10 +374,14 @@ def main():
     p_mem_flush.add_argument("--dir", default=".oma_memory", help="Memory directory")
     p_mem_flush.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompt")
 
+    # demo
+    sub.add_parser("demo", help="Run interactive onboarding demo")
+
     args = parser.parse_args()
 
     if args.command is None:
         parser.print_help()
+        print("\nTip: New to OMA? Run 'oma demo' for a guided tour, or 'oma web' for the GUI dashboard.")
         sys.exit(0)
 
     dispatch = {
@@ -319,6 +392,7 @@ def main():
         "memory": cmd_memory,
         "gui": cmd_gui,
         "web": cmd_web,
+        "demo": cmd_demo,
     }
 
     dispatch[args.command](args)
