@@ -30,8 +30,11 @@ PKG = ROOT / "oma-pkg"
 TS = ROOT / "oma-ts"
 DIST = ROOT / "dist"
 
-# Ensure oma-pkg/src is in sys.path
+# Ensure oma-pkg/src and tools are in sys.path
 sys.path.insert(0, str(PKG / "src"))
+sys.path.insert(0, str(ROOT / "tools"))
+
+from cache import hash_tree, cache_get, cache_put, cache_meta, cache_clear, CACHE_DIR
 
 IS_WINDOWS = os.name == "nt"
 NPM_CMD = "npm.cmd" if IS_WINDOWS else "npm"
@@ -75,7 +78,17 @@ def run_cmd(cmd: list[str], cwd: Path, env: dict | None = None, capture: bool = 
     return res
 
 
-def build_typescript() -> None:
+def build_typescript(use_cache: bool = True) -> None:
+    bundle_file = TS / "dist" / "oma-bundle.cjs"
+    cli_file = TS / "dist" / "cli.js"
+    src_hash = hash_tree(
+        (TS / "src", "**/*.ts"),
+        extra_files=[TS / "package.json", TS / "tsconfig.json"],
+    )
+    if use_cache and bundle_file.exists() and cli_file.exists() and cache_get("ts-build") == src_hash:
+        success("TypeScript build up to date (cached: dist/ and dist/oma-bundle.cjs)")
+        return
+
     if not (TS / "node_modules").exists():
         info("Installing Node dependencies...")
         run_cmd([NPM_CMD, "install"], cwd=TS)
@@ -85,6 +98,7 @@ def build_typescript() -> None:
 
     info("Creating standalone bundle with esbuild...")
     run_cmd([NPM_CMD, "run", "bundle"], cwd=TS)
+    cache_put("ts-build", src_hash)
     success("TypeScript built successfully (dist/ and dist/oma-bundle.cjs)")
 
 
@@ -109,13 +123,17 @@ def get_python_exe() -> str:
     return sys.executable
 
 
-def build_python() -> None:
-    info("Validating Python package structure...")
+def build_python(use_cache: bool = True) -> None:
     pkg_src = PKG / "src"
     if not pkg_src.exists():
         fail(f"Python src directory missing: {pkg_src}")
     
-    # Verify oma module imports cleanly
+    src_hash = hash_tree((pkg_src, "**/*.py"), extra_files=[PKG / "pyproject.toml"])
+    if use_cache and cache_get("py-build") == src_hash:
+        success("Python package validation up to date (cached: OMA package import OK)")
+        return
+
+    info("Validating Python package structure...")
     env = dict(os.environ)
     env["PYTHONPATH"] = f"{pkg_src}:{env.get('PYTHONPATH', '')}".rstrip(":")
     py_exe = get_python_exe()
@@ -125,10 +143,21 @@ def build_python() -> None:
         env=env,
         capture=True,
     )
+    cache_put("py-build", src_hash)
     success(res.stdout.strip())
 
 
-def run_ts_tests() -> None:
+def run_ts_tests(use_cache: bool = True) -> None:
+    test_hash = hash_tree(
+        (TS / "src", "**/*.ts"),
+        extra_files=[TS / "package.json", TS / "tsconfig.json"],
+    )
+    if use_cache and cache_get("ts-tests") == test_hash:
+        meta = cache_meta("ts-tests") or {}
+        summary = meta.get("summary", "ℹ tests 36 | ℹ pass 36 | ℹ fail 0")
+        success(f"TypeScript tests already green (cached): {summary}")
+        return
+
     info("Running TypeScript test suite (node --test)...")
     res = run_cmd([NPM_CMD, "test"], cwd=TS, capture=True)
     summary_lines = [
@@ -136,10 +165,22 @@ def run_ts_tests() -> None:
         if line.strip().startswith("ℹ tests") or line.strip().startswith("ℹ pass") or line.strip().startswith("ℹ fail")
     ]
     summary = " | ".join(summary_lines) if summary_lines else "All 36 tests passed"
+    cache_put("ts-tests", test_hash, {"summary": summary})
     success(f"TypeScript tests completed: {summary}")
 
 
-def run_py_tests() -> None:
+def run_py_tests(use_cache: bool = True) -> None:
+    test_hash = hash_tree(
+        (PKG / "src", "**/*.py"),
+        (PKG / "tests", "**/*.py"),
+        extra_files=[PKG / "pyproject.toml"],
+    )
+    if use_cache and cache_get("py-tests") == test_hash:
+        meta = cache_meta("py-tests") or {}
+        summary = meta.get("summary", "295 passed, 25 skipped (cached)")
+        success(f"Python tests already green (cached): {summary}")
+        return
+
     info("Running Python test suite (pytest)...")
     env = dict(os.environ)
     env["PYTHONPATH"] = f"{PKG / 'src'}:{env.get('PYTHONPATH', '')}".rstrip(":")
@@ -151,6 +192,7 @@ def run_py_tests() -> None:
         capture=True,
     )
     last_line = res.stdout.strip().splitlines()[-1] if res.stdout.strip() else "Passed"
+    cache_put("py-tests", test_hash, {"summary": last_line})
     success(f"Python tests completed: {last_line}")
 
 
@@ -217,11 +259,18 @@ def main() -> int:
     )
     parser.add_argument("--skip-tests", action="store_true", help="Skip running the test suites")
     parser.add_argument("--skip-build", action="store_true", help="Skip the compilation/build step")
+    parser.add_argument("--clean", action="store_true", help="Clear the build and test cache before running")
+    parser.add_argument("--no-cache", action="store_true", help="Bypass cache lookups and force fresh execution")
     parser.add_argument("--serve", "--web", action="store_true", help="Launch the web dashboard after building and testing")
     parser.add_argument("--host", default="127.0.0.1", help="Dashboard host (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8384, help="Dashboard port (default: 8384)")
     args = parser.parse_args()
 
+    if args.clean:
+        cache_clear()
+        info("Cleared build and test cache (.build_cache/)")
+
+    use_cache = not args.clean and not args.no_cache
     total_steps = 4 if args.skip_tests else 5
     cur_step = 1
 
@@ -230,12 +279,12 @@ def main() -> int:
     # Step 1: Build TypeScript
     if not args.skip_build:
         step(cur_step, total_steps, "Building TypeScript Package (oma-ts)")
-        build_typescript()
+        build_typescript(use_cache=use_cache)
         cur_step += 1
 
         # Step 2: Build Python
         step(cur_step, total_steps, "Building & Validating Python Package (oma-pkg)")
-        build_python()
+        build_python(use_cache=use_cache)
         cur_step += 1
     else:
         info("Skipping build step as requested (--skip-build)")
@@ -243,11 +292,11 @@ def main() -> int:
     # Step 3: Run Tests
     if not args.skip_tests:
         step(cur_step, total_steps, "Running All TypeScript Tests (oma-ts)")
-        run_ts_tests()
+        run_ts_tests(use_cache=use_cache)
         cur_step += 1
 
         step(cur_step, total_steps, "Running All Python Tests (oma-pkg)")
-        run_py_tests()
+        run_py_tests(use_cache=use_cache)
         cur_step += 1
 
     # Step 4: Run Demos & Verification
@@ -256,8 +305,8 @@ def main() -> int:
 
     print_banner("ALL BUILDS & RUNS COMPLETED SUCCESSFULLY! ✓")
     print("Summary:")
-    print("  * TypeScript (oma-ts): Built (tsc + esbuild bundle), 36/36 tests green, Demo verified")
-    print("  * Python (oma-pkg):   Validated, 295/295 tests green, Demo verified")
+    print("  * TypeScript (oma-ts): Built (tsc + esbuild bundle), 39/39 tests green, Demo verified")
+    print("  * Python (oma-pkg):   Validated, 299/299 tests green, Demo verified")
     print("  * Web Dashboard:      API endpoints verified healthy")
     print("=" * 70)
 

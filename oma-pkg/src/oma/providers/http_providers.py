@@ -200,6 +200,43 @@ def _openai_parse(raw):
     )
 
 
+def _openai_responses_body(messages, system, model, max_tokens, temperature):
+    """Build a stateless request for OpenAI's Responses API.
+
+    ``temperature`` is intentionally not sent: current GPT reasoning models
+    reject it unless reasoning is disabled.  OMA owns conversation state, so
+    provider-side storage is also disabled explicitly.
+    """
+    body = {
+        "model": model,
+        "input": list(messages),
+        "max_output_tokens": max_tokens,
+        "store": False,
+    }
+    if system:
+        body["instructions"] = system
+    return body
+
+
+def _openai_responses_parse(raw):
+    """Extract text and usage from a non-streaming Responses API result."""
+    text_parts = []
+    for item in raw.get("output", []):
+        if item.get("type") != "message":
+            continue
+        for content in item.get("content", []):
+            if content.get("type") == "output_text" and content.get("text"):
+                text_parts.append(content["text"])
+
+    usage = raw.get("usage", {})
+    return _ParsedResponse(
+        text="".join(text_parts),
+        tokens_in=usage.get("input_tokens", 0),
+        tokens_out=usage.get("output_tokens", 0),
+        model=raw.get("model"),
+    )
+
+
 def _gemini_headers(api_key):
     return {"Content-Type": "application/json"}
 
@@ -242,7 +279,14 @@ def _deepseek_parse(raw):
     return _openai_parse(raw)  # openai-compatible
 
 
-# GLM (Zhipu) and Kimi (Moonshot) also use OpenAI-compatible APIs
+def _optional_bearer_headers(api_key):
+    h = {"Content-Type": "application/json"}
+    if api_key:
+        h["Authorization"] = f"Bearer {api_key}"
+    return h
+
+
+# Jev, Groq, Mistral, Ollama, OpenRouter, Together, Qwen, GLM, and Kimi use OpenAI-compatible APIs
 
 class ProviderConfig(TypedDict):
     """Everything needed to talk to one provider over raw HTTP."""
@@ -263,11 +307,14 @@ PROVIDER_CONFIGS: dict[str, ProviderConfig] = {
         "parse_fn": _claude_parse,
     },
     "chatgpt": {
-        "endpoint": "https://api.openai.com/v1/chat/completions",
-        "default_model": "gpt-4o",
+        # OpenAI recommends Responses for new integrations.  The other
+        # OpenAI-compatible providers below intentionally retain their Chat
+        # Completions protocol.
+        "endpoint": "https://api.openai.com/v1/responses",
+        "default_model": "gpt-5.4",
         "headers_fn": _openai_headers,
-        "body_fn": _openai_body,
-        "parse_fn": _openai_parse,
+        "body_fn": _openai_responses_body,
+        "parse_fn": _openai_responses_parse,
     },
     "gemini": {
         # api key appended as query param at call time
@@ -284,17 +331,67 @@ PROVIDER_CONFIGS: dict[str, ProviderConfig] = {
         "body_fn": _deepseek_body,
         "parse_fn": _deepseek_parse,
     },
+    "jev": {
+        # TypeSafe AI Jev (System 1 fast decision, judging, and routing model)
+        "endpoint": "https://api.typesafe.ai/v1/chat/completions",
+        "default_model": "typesafe/jev",
+        "headers_fn": _openai_headers,
+        "body_fn": _openai_body,
+        "parse_fn": _openai_parse,
+    },
+    "groq": {
+        "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+        "default_model": "llama-3.3-70b-versatile",
+        "headers_fn": _openai_headers,
+        "body_fn": _openai_body,
+        "parse_fn": _openai_parse,
+    },
+    "mistral": {
+        "endpoint": "https://api.mistral.ai/v1/chat/completions",
+        "default_model": "mistral-small-latest",
+        "headers_fn": _openai_headers,
+        "body_fn": _openai_body,
+        "parse_fn": _openai_parse,
+    },
+    "openrouter": {
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "default_model": "typesafe/jev",
+        "headers_fn": _openai_headers,
+        "body_fn": _openai_body,
+        "parse_fn": _openai_parse,
+    },
+    "ollama": {
+        "endpoint": "http://localhost:11434/v1/chat/completions",
+        "default_model": "llama3",
+        "headers_fn": _optional_bearer_headers,
+        "body_fn": _openai_body,
+        "parse_fn": _openai_parse,
+    },
+    "together": {
+        "endpoint": "https://api.together.xyz/v1/chat/completions",
+        "default_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "headers_fn": _openai_headers,
+        "body_fn": _openai_body,
+        "parse_fn": _openai_parse,
+    },
+    "qwen": {
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+        "default_model": "qwen-plus",
+        "headers_fn": _openai_headers,
+        "body_fn": _openai_body,
+        "parse_fn": _openai_parse,
+    },
     "glm": {
         "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
         "default_model": "glm-4-flash",
-        "headers_fn": _openai_headers,  # openai-compatible
+        "headers_fn": _openai_headers,
         "body_fn": _openai_body,
         "parse_fn": _openai_parse,
     },
     "kimi": {
         "endpoint": "https://api.moonshot.cn/v1/chat/completions",
         "default_model": "moonshot-v1-8k",
-        "headers_fn": _openai_headers,  # openai-compatible
+        "headers_fn": _openai_headers,
         "body_fn": _openai_body,
         "parse_fn": _openai_parse,
     },

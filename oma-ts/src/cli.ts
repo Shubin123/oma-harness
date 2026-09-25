@@ -24,6 +24,9 @@ async function cmdRun(args: string[]): Promise<void> {
 
   let criteria: Record<string, unknown> | undefined;
   let resumeFrom: string | undefined;
+  let forceProvider: string | undefined;
+  let forceTier: string | undefined;
+  let offline = false;
 
   // parse optional flags after the objective
   for (let i = 1; i < args.length; i++) {
@@ -38,11 +41,31 @@ async function cmdRun(args: string[]): Promise<void> {
     } else if (args[i] === '--resume' && args[i + 1]) {
       resumeFrom = args[i + 1];
       i++;
+    } else if (args[i] === '--provider' && args[i + 1]) {
+      forceProvider = args[i + 1].toLowerCase();
+      i++;
+    } else if (args[i] === '--tier' && args[i + 1]) {
+      forceTier = args[i + 1].toLowerCase();
+      i++;
+    } else if (args[i] === '--offline') {
+      offline = true;
     }
   }
 
   const { OMA } = await import('./agent.js');
   const agent = OMA.load();
+
+  if (offline) {
+    agent.config.provider_chain = [];
+  } else if (forceProvider) {
+    agent.config.provider_chain = [forceProvider];
+  } else if (forceTier) {
+    agent.router.strategy = 'tiered';
+    const tierProviders = agent.router.tiers?.[forceTier];
+    if (tierProviders?.length) {
+      agent.config.provider_chain = [...tierProviders];
+    }
+  }
 
   const result = await agent.run({
     objective,
@@ -107,6 +130,44 @@ async function cmdWeb(args: string[]): Promise<void> {
       i++;
     }
   }
+
+  const { runWeb } = await import('./gui/web.js');
+  runWeb(host, port);
+}
+
+async function cmdStart(args: string[]): Promise<void> {
+  let host = '127.0.0.1';
+  let port = 8384;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--host' && args[i + 1]) {
+      host = args[i + 1];
+      i++;
+    } else if (args[i] === '--port' && args[i + 1]) {
+      port = parseInt(args[i + 1], 10);
+      i++;
+    }
+  }
+
+  const { AuthManager } = await import('./providers/auth.js');
+  const mgr = new AuthManager();
+  const stored = mgr.status();
+  const loggedIn = Object.keys(stored).filter(k => stored[k]?.status === 'logged_in');
+
+  console.log('='.repeat(70));
+  console.log('           OMA - Open Multi Agent System Running (Node)');
+  console.log('='.repeat(70));
+  console.log(`  * Web GUI Dashboard:  http://${host}:${port}`);
+  console.log(`  * REST API Status:    http://${host}:${port}/api/status`);
+  if (loggedIn.length > 0) {
+    console.log(`  * Active Providers:   ${loggedIn.join(', ')}`);
+  } else {
+    console.log('  * Active Providers:   None yet (connect in Web Dashboard or via \'oma auth add\')');
+  }
+  const info = mgr.storageInfo();
+  console.log(`  * Local Vault:        ${info.file} (mode: ${info.mode || '0600'})`);
+  console.log('-'.repeat(70));
+  console.log('Ready to process tasks and workflows. Press Ctrl+C to stop.\n');
 
   const { runWeb } = await import('./gui/web.js');
   runWeb(host, port);
@@ -342,6 +403,9 @@ Commands:
   run <objective>     Run a task
     --criteria JSON   Success criteria (optional)
     --resume ID       Resume from a previous task ID
+    --provider NAME   Force specific provider (e.g. gemini, deepseek, jev)
+    --tier TIER       Use specific routing tier (t1, t2, t3)
+    --offline         Force offline self-healing simulation mode
 
   status              Show agent status
   providers           List configured providers
@@ -361,10 +425,14 @@ Commands:
     --host HOST       Bind address (default: 127.0.0.1)
     --port PORT       Port number (default: 8384)
 
+  start               Start the whole OMA system (server + dashboard)
+    --host HOST       Bind address (default: 127.0.0.1)
+    --port PORT       Port number (default: 8384)
+
   demo                Run interactive onboarding demo
   help                Show this help message
 
-Tip: New to OMA? Run 'oma demo' for a guided tour, or 'oma web' for the GUI dashboard.
+Tip: New to OMA? Run 'oma demo' for a guided tour, or 'oma start' to launch the whole system.
 `);
 }
 
@@ -391,6 +459,9 @@ async function main(): Promise<void> {
       break;
     case 'web':
       await cmdWeb(rest);
+      break;
+    case 'start':
+      await cmdStart(rest);
       break;
     case 'demo':
       await cmdDemo();

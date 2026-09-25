@@ -18,8 +18,19 @@ from oma import platform_compat
 
 def cmd_run(args):
     from oma.agent import OMA
+    from oma.core.router import RoutingStrategy
 
     agent = OMA.load()
+
+    if getattr(args, "offline", False):
+        agent.config.provider_chain = []
+    elif getattr(args, "provider", None):
+        agent.config.provider_chain = [args.provider.lower()]
+    elif getattr(args, "tier", None):
+        agent.router.strategy = RoutingStrategy.TIERED
+        tier_providers = agent.router.tiers.get(args.tier, [])
+        if tier_providers:
+            agent.config.provider_chain = list(tier_providers)
 
     criteria = None
     if args.criteria:
@@ -115,7 +126,7 @@ def cmd_auth(args):
 
     elif getattr(args, "auth_command", None) == "verify":
         provider = args.provider.lower() if getattr(args, "provider", None) else None
-        providers_to_test = [provider] if provider else list(mgr.all_providers().keys())
+        providers_to_test = [provider] if provider else list(mgr.store.all_providers().keys())
         if not providers_to_test:
             print("No stored credentials to verify.")
             return
@@ -236,6 +247,40 @@ def cmd_web(args):
         sys.exit(1)
 
 
+def cmd_start(args):
+    """Start the whole OMA system (dashboard, agent server, provider manager)."""
+    try:
+        from oma.providers.auth import AuthManager
+        auth = AuthManager()
+        stored = auth.status()
+        logged_in = [p for p, s in stored.items() if s.get("status") == "logged_in"]
+        info = auth.storage_info()
+    except Exception:
+        logged_in = []
+        info = {}
+
+    print("=" * 70)
+    print("           OMA - Open Multi Agent System Running")
+    print("=" * 70)
+    print(f"  * Web GUI Dashboard:  http://{args.host}:{args.port}")
+    print(f"  * REST API Status:    http://{args.host}:{args.port}/api/status")
+    print(f"  * Local Vault:        {info.get('file', '~/.oma/credentials.json')} (mode: {info.get('mode', '0600')})")
+    if logged_in:
+        print(f"  * Active Providers:   {', '.join(logged_in)}")
+    else:
+        print("  * Active Providers:   None yet (connect in Web Dashboard or via 'oma auth add')")
+    print("-" * 70)
+    print("Ready to process tasks and workflows. Press Ctrl+C to stop.\n", flush=True)
+
+    try:
+        from oma.gui.web import run_web
+        run_web(host=args.host, port=args.port, open_browser=not getattr(args, "no_browser", False))
+    except ImportError as e:
+        print(f"Web dependencies not installed: {e}")
+        print("Install with: pip install oma-harness[web]")
+        sys.exit(1)
+
+
 def cmd_demo(args):
     print("=" * 70)
     print("            OMA - Open Multi Agent Onboarding Demo")
@@ -317,6 +362,9 @@ def main():
     p_run.add_argument("objective", help="Task objective")
     p_run.add_argument("--criteria", help="JSON criteria dict", default=None)
     p_run.add_argument("--resume", help="Task ID to resume from", default=None)
+    p_run.add_argument("--provider", help="Force specific provider (e.g. gemini, deepseek, jev)")
+    p_run.add_argument("--tier", choices=["t1", "t2", "t3"], help="Use specific tier primary routing (t1, t2, t3)")
+    p_run.add_argument("--offline", action="store_true", help="Force offline self-healing simulation mode")
 
     # status
     sub.add_parser("status", help="Show agent status")
@@ -377,11 +425,17 @@ def main():
     # demo
     sub.add_parser("demo", help="Run interactive onboarding demo")
 
+    # start
+    p_start = sub.add_parser("start", help="Start the whole OMA system (server + dashboard)")
+    p_start.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
+    p_start.add_argument("--port", type=int, default=8384, help="Port number (default: 8384)")
+    p_start.add_argument("--no-browser", action="store_true", help="Do not open browser automatically")
+
     args = parser.parse_args()
 
     if args.command is None:
         parser.print_help()
-        print("\nTip: New to OMA? Run 'oma demo' for a guided tour, or 'oma web' for the GUI dashboard.")
+        print("\nTip: New to OMA? Run 'oma demo' for a guided tour, or 'oma start' to launch the whole system.")
         sys.exit(0)
 
     dispatch = {
@@ -393,6 +447,7 @@ def main():
         "gui": cmd_gui,
         "web": cmd_web,
         "demo": cmd_demo,
+        "start": cmd_start,
     }
 
     dispatch[args.command](args)

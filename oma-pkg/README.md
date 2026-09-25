@@ -52,7 +52,7 @@ Six LLM subscriptions, zero SDK dependencies. All via raw HTTP.
 |----------|---------|-----------|
 | Claude | `OMA_CLAUDE_KEY` | Anthropic Messages |
 | Gemini | `OMA_GEMINI_KEY` | Google GenerativeLanguage |
-| ChatGPT | `OMA_OPENAI_KEY` | OpenAI Chat Completions |
+| OpenAI | `OMA_OPENAI_KEY` | OpenAI Responses API |
 | DeepSeek | `OMA_DEEPSEEK_KEY` | OpenAI-compatible |
 | GLM | `OMA_GLM_KEY` | OpenAI-compatible |
 | Kimi | `OMA_KIMI_KEY` | OpenAI-compatible |

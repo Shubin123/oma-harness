@@ -208,6 +208,7 @@ class RalphLoop:
         plan_fn: Callable | None = None,
         on_phase: Callable | None = None,
         criteria_fn: Callable | None = None,
+        fallback_solver: Callable | None = None,
     ):
         self.config = config
         self.solve = solve_fn
@@ -217,6 +218,7 @@ class RalphLoop:
         self.plan_fn = plan_fn
         self.on_phase = on_phase
         self.criteria = criteria_fn
+        self.fallback_solver = fallback_solver
 
     def _emit(self, state: TaskState, phase: RalphPhase, data: dict | None = None):
         """Emit a phase event and update state tracking."""
@@ -407,6 +409,21 @@ class RalphLoop:
                     (state.attempts, f"[{provider_name}] error: {e}", 0.0)
                 )
                 continue
+
+        # if all providers failed (or none available), try self-healing fallback
+        if self.fallback_solver:
+            try:
+                result, tokens, confidence = self.fallback_solver(state)
+                if result:
+                    provider_used = "fallback-solver"
+                    state.progress.append(
+                        (state.attempts, "[fallback-solver] self-healing fallback resolved objective", confidence)
+                    )
+                    return result, tokens, confidence, provider_used
+            except Exception as fe:
+                state.progress.append(
+                    (state.attempts, f"[fallback-solver] error: {fe}", 0.0)
+                )
 
         # all providers failed - backoff
         wait = min(

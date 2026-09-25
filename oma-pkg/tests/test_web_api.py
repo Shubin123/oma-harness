@@ -331,6 +331,58 @@ def test_post_workflows_create_and_run(test_server, mock_agent):
         assert res["node_results"]["n3"]["status"] == "pass-through"
 
 
+def test_post_workflows_tiered_routing_run(test_server, mock_agent):
+    # Verify templates endpoint includes tiered_routing
+    with urlopen(f"{test_server}/api/workflows/templates") as resp:
+        assert resp.status == 200
+        tpls = json.loads(resp.read().decode("utf-8"))["templates"]
+        assert any(t["key"] == "tiered_routing" for t in tpls)
+
+    # Configure mock agent router for tiered selection
+    mock_agent.router = MagicMock()
+    mock_agent.router.select_tiered.return_value = ("gemini", "t1", False)
+
+    nodes = [
+        {"id": "n1", "type": "start", "name": "Task Input"},
+        {"id": "n2", "type": "tiered_node", "name": "T1: Gemini Primary", "provider": "gemini", "tier": "t1", "fallback": "deepseek"},
+        {"id": "n3", "type": "judge", "name": "Jev Decision / Gate", "provider": "jev", "tier": "judge"},
+        {"id": "n4", "type": "tiered_node", "name": "T2: DeepSeek Fallback", "provider": "deepseek", "tier": "t2"},
+        {"id": "n5", "type": "merge", "name": "Merge & Format"},
+        {"id": "n6", "type": "end", "name": "Final Output"},
+    ]
+    edges = [
+        {"from": "n1", "to": "n2"},
+        {"from": "n2", "to": "n3"},
+        {"from": "n3", "to": "n4"},
+        {"from": "n3", "to": "n5"},
+        {"from": "n4", "to": "n5"},
+        {"from": "n5", "to": "n6"},
+    ]
+
+    payload = json.dumps({"nodes": nodes, "edges": edges, "input": "Optimize fast sorting algorithm"}).encode()
+    req = Request(f"{test_server}/api/workflows/run", data=payload, headers={"Content-Type": "application/json"})
+    with urlopen(req) as resp:
+        assert resp.status == 200
+        res = json.loads(resp.read().decode("utf-8"))
+        assert res["status"] == "done"
+        assert "node_results" in res
+        results = res["node_results"]
+        # n1 is start
+        assert results["n1"]["status"] == "pass-through"
+        # n2 is tiered primary (gemini)
+        assert results["n2"]["status"] == "done"
+        assert results["n2"]["tier_used"] == "t1"
+        assert results["n2"]["provider_used"] == "gemini"
+        # n3 is Jev Judge
+        assert results["n3"]["status"] == "done"
+        assert results["n3"]["evaluator"] == "jev (TypeSafe AI)"
+        assert results["n3"]["decision"] in ("PASSED", "FAILOVER_TRIGGERED")
+        # n5 is merge
+        assert results["n5"]["status"] == "pass-through"
+        # n6 is end
+        assert results["n6"]["status"] == "pass-through"
+
+
 def test_verify_token_direct():
     handler = DashboardHandler.__new__(DashboardHandler)
 

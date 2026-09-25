@@ -107,28 +107,11 @@ def artifact_name(prefix: str) -> str:
 
 
 # --- caching ----------------------------------------------------------------
+tools_dir = ROOT / "tools"
+if str(tools_dir) not in sys.path:
+    sys.path.insert(0, str(tools_dir))
 
-def hash_tree(*globs: tuple[Path, str]) -> str:
-    """Hash every file matched by (directory, pattern) pairs, order-independent."""
-    digest = hashlib.sha256()
-    files: list[Path] = []
-    for base, pattern in globs:
-        if base.exists():
-            files.extend(sorted(p for p in base.glob(pattern) if p.is_file()))
-    for path in sorted(files):
-        digest.update(path.relative_to(ROOT).as_posix().encode())
-        digest.update(path.read_bytes())
-    return digest.hexdigest()
-
-
-def cache_get(key: str) -> str | None:
-    path = CACHE / f"{key}.hash"
-    return path.read_text().strip() if path.exists() else None
-
-
-def cache_put(key: str, value: str) -> None:
-    CACHE.mkdir(parents=True, exist_ok=True)
-    (CACHE / f"{key}.hash").write_text(value)
+from cache import hash_tree, cache_get, cache_put, cache_clear, CACHE_DIR as CACHE
 
 
 # --- packaging --------------------------------------------------------------
@@ -183,7 +166,7 @@ def build_python(clean: bool, skip_tests: bool) -> Path:
     if not skip_tests:
         run_python_tests()
 
-    sources = hash_tree((PKG / "src", "**/*.py"), (PKG, "oma.spec"))
+    sources = hash_tree((PKG / "src", "**/*.py"), (PKG, "oma.spec"), extra_files=[PKG / "pyproject.toml"])
     target = DIST / artifact_name("oma")
     if not clean and target.exists() and cache_get("python-binary") == sources:
         info("sources unchanged since the last build, reusing the existing binary")
@@ -203,6 +186,13 @@ def build_python(clean: bool, skip_tests: bool) -> Path:
     shutil.copy2(built, target)
     if not IS_WINDOWS:
         target.chmod(0o755)
+        shortcut = DIST / f"oma{EXE_SUFFIX}"
+        try:
+            if shortcut.exists() or shortcut.is_symlink():
+                shortcut.unlink()
+            shortcut.symlink_to(target.name)
+        except OSError:
+            shutil.copy2(target, shortcut)
     info(f"built {target.name} ({target.stat().st_size // 1024} KB)")
 
     verify(target)
@@ -220,7 +210,7 @@ def ensure_pyinstaller() -> None:
 
 
 def run_python_tests() -> None:
-    sources = hash_tree((PKG / "src", "**/*.py"), (PKG / "tests", "**/*.py"))
+    sources = hash_tree((PKG / "src", "**/*.py"), (PKG / "tests", "**/*.py"), extra_files=[PKG / "pyproject.toml"])
     if cache_get("python-tests") == sources:
         info("tests already green for these sources, skipping")
         return
@@ -256,7 +246,7 @@ def build_node(clean: bool, skip_tests: bool) -> Path | None:
     if clean or not (TS / "node_modules").exists():
         run(["npm.cmd" if IS_WINDOWS else "npm", "install"], cwd=TS)
 
-    sources = hash_tree((TS / "src", "**/*.ts"))
+    sources = hash_tree((TS / "src", "**/*.ts"), extra_files=[TS / "package.json", TS / "tsconfig.json"])
     target = DIST / artifact_name("oma-node")
     if not clean and target.exists() and cache_get("node-binary") == sources:
         info("sources unchanged since the last build, reusing the existing binary")

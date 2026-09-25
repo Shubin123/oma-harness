@@ -39,6 +39,7 @@ class RoutingStrategy(Enum):
     AUTO = "auto"
     FUSION = "fusion"
     PIPELINE = "pipeline"
+    TIERED = "tiered"
 
 
 class BreakerState(Enum):
@@ -722,6 +723,11 @@ class Router:
         self._lkgp: dict[str, str] = {}
         self._usage_counts: dict[str, int] = {}
         self._provider_weights: dict[str, float] = {}
+        self.tiers: dict[str, list[str]] = {
+            "t1": ["gemini", "claude", "chatgpt"],
+            "t2": ["deepseek", "mistral", "groq", "jev", "glm", "kimi"],
+            "t3": ["ollama", "together", "qwen"],
+        }
 
     def get_breaker(self, provider_id: str) -> CircuitBreaker:
         if provider_id not in self.breakers:
@@ -731,6 +737,47 @@ class Router:
     def set_weights(self, provider_id: str, weight: float) -> None:
         """Set weight for weighted routing strategy."""
         self._provider_weights[provider_id] = max(0.0, weight)
+
+    def select_tiered(
+        self,
+        t1: list[str] | str = "gemini",
+        t2: list[str] | str = "deepseek",
+        available: list[str] | None = None,
+        health_stats: dict[str, dict[str, Any]] | None = None,
+        task_type: str = "general",
+    ) -> tuple[str, str, bool]:
+        """
+        Tiered routing: try T1 primary provider(s).
+        If in cooldown, circuit breaker open, or unavailable, immediately failover to T2 secondary provider(s).
+        Returns: (selected_provider, tier_name, is_failover)
+        """
+        t1_list = [t1] if isinstance(t1, str) else list(t1)
+        t2_list = [t2] if isinstance(t2, str) else list(t2)
+        avail = available if available is not None else list(self.breakers.keys())
+
+        if not avail:
+            return t1_list[0], "t1", False
+
+        # 1. Try healthy T1 candidates
+        for p in t1_list:
+            if p in avail:
+                cb = self.get_breaker(p)
+                if cb.allow_request() and self.quota_mgr.is_available(p):
+                    return p, "t1", False
+
+        # 2. T1 unavailable or tripped breaker -> failover to T2
+        for p in t2_list:
+            if p in avail:
+                cb = self.get_breaker(p)
+                if cb.allow_request() and self.quota_mgr.is_available(p):
+                    return p, "t2", True
+
+        # 3. Any available from T1 or T2
+        for p in t1_list + t2_list:
+            if p in avail:
+                return p, "fallback", True
+
+        return avail[0], "fallback", True
 
     def select(
         self,
@@ -816,6 +863,16 @@ class Router:
 
         elif strat == RoutingStrategy.PIPELINE:
             return candidates[0]  # pipeline engine handles stage selection
+
+        elif strat == RoutingStrategy.TIERED:
+            p, _, _ = self.select_tiered(
+                t1=self.tiers.get("t1", ["gemini", "claude", "chatgpt"]),
+                t2=self.tiers.get("t2", ["deepseek", "mistral", "groq", "jev"]),
+                available=candidates,
+                health_stats=health_stats,
+                task_type=task_type,
+            )
+            return p
 
         return candidates[0]
 

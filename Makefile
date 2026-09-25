@@ -1,4 +1,4 @@
-.PHONY: all run build-and-run demo serve build build-py build-ts test test-py test-ts lint lint-py lint-ts \
+.PHONY: all run start build-and-run demo serve build build-py build-ts test test-py test-ts lint lint-py lint-ts \
         typecheck-py clean release install install-py install-ts help
 
 # Detect python3.11 if available, fallback to python3
@@ -10,6 +10,9 @@ help: ## Show this help
 
 all: run ## Default: build and run everything in the project
 
+start: ## One command after building that lets the whole thing run
+	$(PYTHON) start.py
+
 run: build-and-run ## Build and run everything in the project (TypeScript, Python, tests, demos, verification)
 
 build-and-run: ## Build and run everything in the project
@@ -18,8 +21,8 @@ build-and-run: ## Build and run everything in the project
 demo: ## Run onboarding interactive demo
 	$(PYTHON) -m oma.cli demo
 
-serve: ## Build, test, and launch the web dashboard at http://localhost:8384
-	$(PYTHON) tools/run_all.py --serve
+serve: ## Launch the whole system at http://localhost:8384
+	$(PYTHON) start.py
 
 # ---- build ----
 

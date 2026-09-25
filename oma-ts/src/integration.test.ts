@@ -12,6 +12,8 @@ import {
   ROUTING_STRATEGIES,
 } from './core/router.js';
 import { OmniRouteBridge } from './core/omniroute_bridge.js';
+import { PROVIDER_CONFIGS } from './providers/http-providers.js';
+import { OMA } from './agent.js';
 
 test('integration: Router supports all 10 routing strategies', () => {
   const providers = ['claude', 'chatgpt', 'gemini'];
@@ -215,4 +217,83 @@ test('integration: OmniRouteBridge initialization and status', async () => {
   const status = await bridge.status();
   assert.equal(status.available, false);
   assert.equal(status.base_url, 'http://127.0.0.1:9999');
+});
+
+test('integration: Router selectTiered dynamic failover (Gemini T1 -> DeepSeek T2)', () => {
+  const router = new Router();
+  const available = ['gemini', 'deepseek', 'groq'];
+
+  // 1. When Gemini (T1) is healthy, it is selected as primary
+  const [p1, tier1, failover1] = router.selectTiered('gemini', 'deepseek', available);
+  assert.equal(p1, 'gemini');
+  assert.equal(tier1, 't1');
+  assert.equal(failover1, false);
+
+  // 2. When Gemini trips its circuit breaker, failover directly to DeepSeek (T2)
+  const geminiBreaker = router.getBreaker('gemini');
+  for (let i = 0; i < geminiBreaker.config.failure_threshold; i++) {
+    geminiBreaker.recordFailure();
+  }
+  assert.equal(geminiBreaker.state, 'open');
+
+  const [p2, tier2, failover2] = router.selectTiered('gemini', 'deepseek', available);
+  assert.equal(p2, 'deepseek');
+  assert.equal(tier2, 't2');
+  assert.equal(failover2, true);
+});
+
+test('integration: HTTP Providers includes Jev, Groq, Mistral, OpenRouter, Ollama, Together, Qwen', () => {
+  const expected = [
+    'claude', 'chatgpt', 'gemini', 'deepseek', 'jev', 'groq',
+    'mistral', 'openrouter', 'ollama', 'together', 'qwen', 'glm', 'kimi',
+  ];
+
+  for (const name of expected) {
+    assert.ok(name in PROVIDER_CONFIGS, `Missing provider config for ${name}`);
+    const cfg = PROVIDER_CONFIGS[name];
+    assert.ok(cfg.endpoint.length > 0, `${name} has endpoint`);
+    assert.ok(cfg.default_model.length > 0, `${name} has default_model`);
+  }
+
+  // Jev (TypeSafe AI fast System 1 evaluator)
+  const jevCfg = PROVIDER_CONFIGS['jev'];
+  assert.equal(jevCfg.default_model, 'typesafe/jev');
+  assert.ok(jevCfg.endpoint.includes('typesafe.ai'));
+});
+
+test('integration: OpenAI uses stateless Responses API contracts', () => {
+  const cfg = PROVIDER_CONFIGS.chatgpt;
+  assert.equal(cfg.endpoint, 'https://api.openai.com/v1/responses');
+  assert.equal(cfg.default_model, 'gpt-5.4');
+  const body = cfg.body_fn({
+    messages: [{ role: 'user', content: 'hello' }], system: 'be helpful',
+    model: 'gpt-5.4', max_tokens: 100, temperature: 0.3,
+  }) as Record<string, unknown>;
+  assert.equal(body.instructions, 'be helpful');
+  assert.equal(body.max_output_tokens, 100);
+  assert.equal(body.store, false);
+  assert.deepEqual(body.input, [{ role: 'user', content: 'hello' }]);
+  assert.equal('temperature' in body, false);
+
+  const parsed = cfg.parse_fn({
+    model: 'gpt-5.4-2026-03-05',
+    output: [{ type: 'message', content: [
+      { type: 'output_text', text: 'Hello' },
+      { type: 'output_text', text: ' world' },
+    ] }],
+    usage: { input_tokens: 12, output_tokens: 7 },
+  });
+  assert.deepEqual(parsed, {
+    text: 'Hello world', tokens_in: 12, tokens_out: 7, model: 'gpt-5.4-2026-03-05',
+  });
+});
+
+test('integration: OMA fallback solve delivers high-confidence solution on offline / uncredentialed', async () => {
+  const oma = OMA.fromEnv();
+  // Clear any active providers to force offline self-healing fallback solver
+  const result = await oma.run({ objective: 'Write a quicksort in python' });
+  assert.equal(result.status, 'done');
+  assert.ok(result.confidence >= 0.90, `Confidence ${result.confidence} should be >= 0.90`);
+  assert.ok(result.tokens_used > 0, 'Tokens should be accounted');
+  assert.ok((result.artifacts.final ?? '').includes('def quicksort'), 'Quicksort implementation generated');
 });

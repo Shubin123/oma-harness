@@ -190,6 +190,37 @@ function openaiParse(raw: Record<string, unknown>): ParsedResponse {
   };
 }
 
+function openaiResponsesBody({ messages, system, model, max_tokens }: { messages: Message[]; system?: string; model: string; max_tokens: number; temperature: number }): unknown {
+  // GPT reasoning models reject temperature unless reasoning is disabled.
+  // OMA manages context itself, so do not persist requests at the provider.
+  const body: Record<string, unknown> = {
+    model,
+    input: [...messages],
+    max_output_tokens: max_tokens,
+    store: false,
+  };
+  if (system) body.instructions = system;
+  return body;
+}
+
+function openaiResponsesParse(raw: Record<string, unknown>): ParsedResponse {
+  const output = raw.output as Array<Record<string, unknown>> | undefined;
+  const text = (output ?? [])
+    .filter(item => item.type === 'message')
+    .flatMap(item => (item.content as Array<Record<string, unknown>> | undefined) ?? [])
+    .filter(content => content.type === 'output_text')
+    .map(content => content.text as string | undefined)
+    .filter((part): part is string => typeof part === 'string')
+    .join('');
+  const usage = raw.usage as Record<string, number> | undefined;
+  return {
+    text,
+    tokens_in: usage?.input_tokens ?? 0,
+    tokens_out: usage?.output_tokens ?? 0,
+    model: raw.model as string | undefined,
+  };
+}
+
 function geminiHeaders(_apiKey: string): Record<string, string> {
   return { 'Content-Type': 'application/json' };
 }
@@ -219,6 +250,12 @@ function geminiParse(raw: Record<string, unknown>): ParsedResponse {
   };
 }
 
+function optionalBearerHeaders(apiKey: string): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) h['Authorization'] = `Bearer ${apiKey}`;
+  return h;
+}
+
 export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
   claude: {
     endpoint: 'https://api.anthropic.com/v1/messages',
@@ -228,11 +265,13 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     parse_fn: claudeParse,
   },
   chatgpt: {
-    endpoint: 'https://api.openai.com/v1/chat/completions',
-    default_model: 'gpt-4o',
+    // OpenAI Responses is the native protocol; the configs below retain the
+    // Chat Completions protocol for third-party OpenAI-compatible APIs.
+    endpoint: 'https://api.openai.com/v1/responses',
+    default_model: 'gpt-5.4',
     headers_fn: openaiHeaders,
-    body_fn: openaiBody,
-    parse_fn: openaiParse,
+    body_fn: openaiResponsesBody,
+    parse_fn: openaiResponsesParse,
   },
   gemini: {
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
@@ -244,6 +283,55 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
   deepseek: {
     endpoint: 'https://api.deepseek.com/chat/completions',
     default_model: 'deepseek-chat',
+    headers_fn: openaiHeaders,
+    body_fn: openaiBody,
+    parse_fn: openaiParse,
+  },
+  jev: {
+    endpoint: 'https://api.typesafe.ai/v1/chat/completions',
+    default_model: 'typesafe/jev',
+    headers_fn: openaiHeaders,
+    body_fn: openaiBody,
+    parse_fn: openaiParse,
+  },
+  groq: {
+    endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+    default_model: 'llama-3.3-70b-versatile',
+    headers_fn: openaiHeaders,
+    body_fn: openaiBody,
+    parse_fn: openaiParse,
+  },
+  mistral: {
+    endpoint: 'https://api.mistral.ai/v1/chat/completions',
+    default_model: 'mistral-small-latest',
+    headers_fn: openaiHeaders,
+    body_fn: openaiBody,
+    parse_fn: openaiParse,
+  },
+  openrouter: {
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    default_model: 'typesafe/jev',
+    headers_fn: openaiHeaders,
+    body_fn: openaiBody,
+    parse_fn: openaiParse,
+  },
+  ollama: {
+    endpoint: 'http://localhost:11434/v1/chat/completions',
+    default_model: 'llama3',
+    headers_fn: optionalBearerHeaders,
+    body_fn: openaiBody,
+    parse_fn: openaiParse,
+  },
+  together: {
+    endpoint: 'https://api.together.xyz/v1/chat/completions',
+    default_model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    headers_fn: openaiHeaders,
+    body_fn: openaiBody,
+    parse_fn: openaiParse,
+  },
+  qwen: {
+    endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    default_model: 'qwen-plus',
     headers_fn: openaiHeaders,
     body_fn: openaiBody,
     parse_fn: openaiParse,

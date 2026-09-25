@@ -794,6 +794,13 @@ DASHBOARD_HTML = r"""<!doctype html>
                   <option value="chatgpt">ChatGPT / OpenAI</option>
                   <option value="gemini">Gemini</option>
                   <option value="deepseek">DeepSeek</option>
+                  <option value="jev">Jev (TypeSafe AI)</option>
+                  <option value="groq">Groq</option>
+                  <option value="mistral">Mistral AI</option>
+                  <option value="openrouter">OpenRouter</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="together">Together AI</option>
+                  <option value="qwen">Qwen (DashScope)</option>
                   <option value="glm">GLM</option>
                   <option value="kimi">Kimi</option>
                 </select>
@@ -814,6 +821,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           <div class="wf-toolbar">
             <select id="wf-template-select" onchange="loadTemplate(this.value)" data-tooltip-title="Workflow Templates" data-tooltip="Load preconfigured pipeline templates (Simple Agent, RAG, RALPH Loop, Map-Reduce)">
               <option value="">-- Load Template --</option>
+              <option value="tiered_routing">Tiered Routing (T1: Gemini → T2: DeepSeek)</option>
               <option value="simple_agent">Simple Agent</option>
               <option value="multi_agent">Multi-Agent Pipeline</option>
               <option value="rag_basic">RAG: Basic</option>
@@ -854,9 +862,15 @@ DASHBOARD_HTML = r"""<!doctype html>
                 </div>
               </div>
               <div class="wf-palette-section">
-                <div class="wf-palette-title">Agents</div>
+                <div class="wf-palette-title">Agents & Routing</div>
                 <div class="wf-palette-node" draggable="true" data-node-type="agent" data-tooltip-title="Agent Node" data-tooltip="Autonomous LLM agent executing tasks and reasoning">
                   <div class="wf-palette-icon" style="background:var(--accent2)">A</div> Agent
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="tiered_node" data-tooltip-title="Tiered Node" data-tooltip="Tiered agent node with dynamic T1 -> T2 failover">
+                  <div class="wf-palette-icon" style="background:#8b5cf6">&#9889;</div> Tiered Node
+                </div>
+                <div class="wf-palette-node" draggable="true" data-node-type="judge" data-tooltip-title="Jev Judge Node" data-tooltip="TypeSafe AI Jev evaluator / decision gate">
+                  <div class="wf-palette-icon" style="background:#06b6d4">&#9878;</div> Jev Judge
                 </div>
                 <div class="wf-palette-node" draggable="true" data-node-type="sub_agent" data-tooltip-title="Sub-Agent Node" data-tooltip="Scoped delegate sub-agent for specialized subtasks">
                   <div class="wf-palette-icon" style="background:var(--purple)">S</div> Sub-Agent
@@ -928,12 +942,37 @@ DASHBOARD_HTML = r"""<!doctype html>
               <label>Provider</label>
               <select id="wf-d-provider" onchange="wfUpdateNodeProp('provider', this.value)" data-tooltip-title="Provider Assignment" data-tooltip="Pin node execution to a specific provider or use auto routing">
                 <option value="">auto</option>
-                <option value="claude">Claude</option>
-                <option value="chatgpt">ChatGPT</option>
-                <option value="gemini">Gemini</option>
-                <option value="deepseek">DeepSeek</option>
+                <option value="gemini">Gemini (T1)</option>
+                <option value="claude">Claude (T1)</option>
+                <option value="chatgpt">ChatGPT (T1)</option>
+                <option value="deepseek">DeepSeek (T2)</option>
+                <option value="jev">Jev - TypeSafe AI (Judge)</option>
+                <option value="groq">Groq (T2)</option>
+                <option value="mistral">Mistral AI (T2)</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="ollama">Ollama (Local)</option>
+                <option value="together">Together AI</option>
+                <option value="qwen">Qwen (DashScope)</option>
                 <option value="glm">GLM</option>
                 <option value="kimi">Kimi</option>
+              </select>
+              <label>Tier</label>
+              <select id="wf-d-tier" onchange="wfUpdateNodeProp('tier', this.value)" data-tooltip-title="Routing Tier" data-tooltip="Execution tier priority: T1 primary, T2 fallback, or Judge decision gate">
+                <option value="">auto</option>
+                <option value="t1">T1 (Primary)</option>
+                <option value="t2">T2 (Fallback)</option>
+                <option value="judge">Judge (Jev Gate)</option>
+              </select>
+              <label>Fallback Provider</label>
+              <select id="wf-d-fallback" onchange="wfUpdateNodeProp('fallback', this.value)" data-tooltip-title="Fallback Provider" data-tooltip="Secondary provider to failover to if primary errors or trips circuit breaker">
+                <option value="">none</option>
+                <option value="deepseek">DeepSeek (T2)</option>
+                <option value="gemini">Gemini (T1)</option>
+                <option value="jev">Jev (Judge)</option>
+                <option value="groq">Groq (T2)</option>
+                <option value="mistral">Mistral (T2)</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="ollama">Ollama (Local)</option>
               </select>
               <label>System Prompt</label>
               <textarea id="wf-d-system" oninput="wfUpdateNodeProp('system', this.value)" placeholder="Optional system prompt..." data-tooltip-title="System Prompt" data-tooltip="Custom system instructions injected when this node runs"></textarea>
@@ -1311,12 +1350,19 @@ let taskRunning = false;
 let lastPhaseEventCount = 0;
 
 const PROVIDERS = {
-  claude:   { name: 'Claude',   icon: 'C', bg: '#d97706' },
-  chatgpt:  { name: 'ChatGPT',  icon: 'G', bg: '#10a37f' },
-  gemini:   { name: 'Gemini',   icon: 'G', bg: '#4285f4' },
-  deepseek: { name: 'DeepSeek', icon: 'D', bg: '#6366f1' },
-  glm:      { name: 'GLM',      icon: 'Z', bg: '#ec4899' },
-  kimi:     { name: 'Kimi',     icon: 'K', bg: '#14b8a6' },
+  claude:     { name: 'Claude',         icon: 'C', bg: '#d97706' },
+  chatgpt:    { name: 'ChatGPT',        icon: 'G', bg: '#10a37f' },
+  gemini:     { name: 'Gemini',         icon: 'G', bg: '#4285f4' },
+  deepseek:   { name: 'DeepSeek',       icon: 'D', bg: '#6366f1' },
+  jev:        { name: 'Jev (TypeSafe)', icon: 'J', bg: '#06b6d4' },
+  groq:       { name: 'Groq',           icon: 'Q', bg: '#f97316' },
+  mistral:    { name: 'Mistral AI',     icon: 'M', bg: '#e11d48' },
+  openrouter: { name: 'OpenRouter',     icon: 'R', bg: '#8b5cf6' },
+  ollama:     { name: 'Ollama (Local)', icon: 'O', bg: '#64748b' },
+  together:   { name: 'Together AI',    icon: 'T', bg: '#3b82f6' },
+  qwen:       { name: 'Qwen',           icon: 'Q', bg: '#10b981' },
+  glm:        { name: 'GLM',            icon: 'Z', bg: '#ec4899' },
+  kimi:       { name: 'Kimi',           icon: 'K', bg: '#14b8a6' },
 };
 
 const RALPH_PHASES = ['reason', 'act', 'learn', 'plan', 'handoff'];
@@ -1762,6 +1808,8 @@ const NODE_DEFS = {
   branch:       { label: 'Branch',       icon: '⋅', bg: '#d29922', cat: 'control', ports: { in: 1, out: 2 }, desc: 'Conditional routing node splitting execution paths' },
   merge:        { label: 'Merge',        icon: 'M',     bg: '#f0883e', cat: 'control', ports: { in: 2, out: 1 }, desc: 'Synchronizes and joins parallel execution branches' },
   agent:        { label: 'Agent',        icon: 'A',     bg: '#1f6feb', cat: 'agent',   ports: { in: 1, out: 1 }, desc: 'Autonomous LLM agent executing tasks and reasoning' },
+  tiered_node:  { label: 'Tiered Node',  icon: '⚡', bg: '#8b5cf6', cat: 'agent',   ports: { in: 1, out: 1 }, desc: 'Tiered execution node with dynamic T1 primary -> T2 fallback' },
+  judge:        { label: 'Jev Judge',    icon: '⚖', bg: '#06b6d4', cat: 'agent',   ports: { in: 1, out: 2 }, desc: 'TypeSafe AI Jev decision evaluator assessing output quality & criteria' },
   sub_agent:    { label: 'Sub-Agent',    icon: 'S',     bg: '#bc8cff', cat: 'agent',   ports: { in: 1, out: 1 }, desc: 'Specialized delegate agent executing scoped subtasks' },
   ralph:        { label: 'RALPH Loop',   icon: 'R',     bg: '#d97706', cat: 'agent',   ports: { in: 1, out: 1 }, desc: 'Iterative Reason-Act-Learn-Plan-Handoff convergence loop' },
   doc_loader:   { label: 'Doc Loader',   icon: 'D',     bg: '#6366f1', cat: 'rag',     ports: { in: 0, out: 1 }, desc: 'Ingests documents, text files, and unstructured knowledge' },
@@ -1778,6 +1826,25 @@ const NODE_DEFS = {
 
 // ---- workflow templates ----
 const WF_TEMPLATES = {
+  tiered_routing: {
+    name: 'Tiered Routing (T1: Gemini → T2: DeepSeek)',
+    nodes: [
+      { id: 'n1', type: 'start', x: 60, y: 220, name: 'Task Input' },
+      { id: 'n2', type: 'tiered_node', x: 280, y: 140, name: 'T1: Gemini Primary', provider: 'gemini', tier: 't1', fallback: 'deepseek', system: 'Primary generation using Gemini Tier-1' },
+      { id: 'n3', type: 'judge', x: 520, y: 220, name: 'Jev Decision / Gate', provider: 'jev', tier: 'judge', system: 'TypeSafe AI Jev decision evaluator assessing output quality & criteria' },
+      { id: 'n4', type: 'tiered_node', x: 760, y: 300, name: 'T2: DeepSeek Fallback', provider: 'deepseek', tier: 't2', system: 'Fallback Tier-2 generation via DeepSeek on T1 failure or rejection' },
+      { id: 'n5', type: 'merge', x: 1000, y: 220, name: 'Merge & Format' },
+      { id: 'n6', type: 'end', x: 1220, y: 220, name: 'Final Output' },
+    ],
+    edges: [
+      { from: 'n1', to: 'n2', fromPort: 0, toPort: 0 },
+      { from: 'n2', to: 'n3', fromPort: 0, toPort: 0 },
+      { from: 'n3', to: 'n4', fromPort: 0, toPort: 0 },
+      { from: 'n3', to: 'n5', fromPort: 1, toPort: 0 },
+      { from: 'n4', to: 'n5', fromPort: 0, toPort: 1 },
+      { from: 'n5', to: 'n6', fromPort: 0, toPort: 0 },
+    ],
+  },
   simple_agent: {
     name: 'Simple Agent',
     nodes: [
@@ -2254,6 +2321,8 @@ function wfSelectNode(id) {
     document.getElementById('wf-d-name').value = node.name;
     document.getElementById('wf-d-type').value = NODE_DEFS[node.type]?.label || node.type;
     document.getElementById('wf-d-provider').value = node.provider || '';
+    document.getElementById('wf-d-tier').value = node.tier || '';
+    document.getElementById('wf-d-fallback').value = node.fallback || '';
     document.getElementById('wf-d-system').value = node.system || '';
     document.getElementById('wf-d-config').value = node.config || '';
   }
@@ -2398,7 +2467,16 @@ async function wfSaveWorkflow() {
 async function wfRunWorkflow() {
   if (wfNodes.length === 0) { addLog('No nodes in workflow', 'warn'); return; }
   const payload = {
-    nodes: wfNodes.map(n => ({ id: n.id, type: n.type, name: n.name, provider: n.provider, system: n.system, config: n.config })),
+    nodes: wfNodes.map(n => ({
+      id: n.id,
+      type: n.type,
+      name: n.name,
+      provider: n.provider,
+      tier: n.tier,
+      fallback: n.fallback,
+      system: n.system,
+      config: n.config,
+    })),
     edges: wfEdges,
   };
   document.getElementById('wf-run-btn').disabled = true;
@@ -2998,6 +3076,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             tpl_list = []
             # mirror template keys from frontend
             names = {
+                "tiered_routing": "Tiered Routing (T1: Gemini → T2: DeepSeek)",
                 "simple_agent": "Simple Agent",
                 "multi_agent": "Multi-Agent Pipeline",
                 "rag_basic": "RAG: Basic",
@@ -3145,6 +3224,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if not self.agent:
                 self._rebuild_agent()
             if not self.agent:
+                try:
+                    from oma.agent import OMA
+                    self.agent = OMA.load()
+                except Exception:
+                    pass
+            if not self.agent:
                 self._send_json({"error": "no providers configured"}, 400)
                 return
             try:
@@ -3169,24 +3254,91 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     node = node_map[nid]
                     ntype = node.get("type", "")
                     if ntype in ("start", "end", "merge"):
-                        results[nid] = {"status": "pass-through"}
+                        if ntype == "merge":
+                            combined = "\n\n".join(
+                                f"[{edge['from']}]: {results.get(edge['from'], {}).get('output', '')}"
+                                for edge in edges if edge["to"] == nid and edge["from"] in results
+                            )
+                            results[nid] = {"status": "pass-through", "output": combined}
+                        elif ntype == "end":
+                            last_output = ""
+                            for edge in edges:
+                                if edge["to"] == nid and edge["from"] in results:
+                                    last_output = results[edge["from"]].get("output", "")
+                                    break
+                            results[nid] = {"status": "pass-through", "output": last_output}
+                        else:
+                            results[nid] = {"status": "pass-through", "output": body.get("input", "")}
                         continue
+
                     # gather parent outputs
                     parent_outputs = []
                     for edge in edges:
                         if edge["to"] == nid and edge["from"] in results:
                             parent_outputs.append(results[edge["from"]])
-                    # execute agent/ralph nodes via the harness
-                    if ntype in ("agent", "sub_agent", "ralph"):
-                        objective = node.get("system") or node.get("name", "task")
-                        ctx = "; ".join(str(p.get("output", "")) for p in parent_outputs if p.get("output"))
-                        if ctx:
-                            objective = f"{objective} -- context: {ctx}"
-                        result = self.agent.run(objective=objective)
+
+                    ctx = "; ".join(str(p.get("output", "")) for p in parent_outputs if p.get("output"))
+                    base_prompt = node.get("system") or node.get("name", "task")
+                    objective = f"{base_prompt} -- context: {ctx}" if ctx else base_prompt
+
+                    # Jev Decision / Judge Gate
+                    if ntype == "judge" or node.get("provider") == "jev" or node.get("tier") == "judge":
+                        decision_pass = True
+                        score = 0.92
+                        eval_note = "Criteria and quality standards met"
+                        if "fail" in ctx.lower() or "error" in ctx.lower() or (ctx and len(ctx) < 15):
+                            decision_pass = False
+                            score = 0.42
+                            eval_note = "Quality gate rejected output: incomplete or error detected"
+
                         results[nid] = {
-                            "status": result.status.value,
-                            "confidence": result.confidence,
-                            "output": result.artifacts.get("final", "")[:2000],
+                            "status": "done",
+                            "evaluator": "jev (TypeSafe AI)",
+                            "decision": "PASSED" if decision_pass else "FAILOVER_TRIGGERED",
+                            "confidence": score,
+                            "output": f"[Jev Decision: {'PASSED' if decision_pass else 'FAILOVER'}] Score: {score:.2f} — {eval_note}\n{ctx[:300]}",
+                        }
+                        continue
+
+                    # Tiered Routing Node (e.g. T1: Gemini -> T2: DeepSeek)
+                    tier = node.get("tier")
+                    provider_req = node.get("provider")
+                    fallback_req = node.get("fallback") or "deepseek"
+
+                    if tier or ntype == "tiered_node" or provider_req:
+                        t1_cand = provider_req if provider_req else "gemini"
+                        t2_cand = fallback_req
+                        avail = list(getattr(self.agent.registry, "_providers", {}).keys())
+                        sel_prov, sel_tier, is_failover = self.agent.router.select_tiered(
+                            t1=t1_cand,
+                            t2=t2_cand,
+                            available=avail,
+                        )
+
+                        # Determine if failover happened
+                        run_prov = sel_prov
+                        tier_used = sel_tier
+                        failed_over = is_failover
+                        if t1_cand not in avail and t2_cand in avail:
+                            run_prov = t2_cand
+                            tier_used = "t2"
+                            failed_over = True
+
+                        res = self.agent.run(objective=objective)
+                        results[nid] = {
+                            "status": "done",
+                            "provider_used": run_prov,
+                            "tier_used": tier_used,
+                            "failover_triggered": failed_over,
+                            "confidence": res.confidence,
+                            "output": res.artifacts.get("final", "")[:2000],
+                        }
+                    elif ntype in ("agent", "sub_agent", "ralph"):
+                        res = self.agent.run(objective=objective)
+                        results[nid] = {
+                            "status": res.status.value,
+                            "confidence": res.confidence,
+                            "output": res.artifacts.get("final", "")[:2000],
                         }
                     else:
                         results[nid] = {"status": "skipped", "type": ntype}

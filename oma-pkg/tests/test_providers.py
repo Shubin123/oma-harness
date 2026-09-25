@@ -114,7 +114,10 @@ class TestProviderRegistry:
 
 class TestProviderConfigs:
     def test_all_configs_present(self):
-        expected = ["claude", "chatgpt", "gemini", "deepseek", "glm", "kimi"]
+        expected = [
+            "claude", "chatgpt", "gemini", "deepseek", "jev", "groq",
+            "mistral", "openrouter", "ollama", "together", "qwen", "glm", "kimi"
+        ]
         for name in expected:
             assert name in PROVIDER_CONFIGS, f"missing config for {name}"
 
@@ -142,13 +145,33 @@ class TestProviderConfigs:
         body = body_fn(
             messages=[{"role": "user", "content": "hi"}],
             system="be helpful",
-            model="gpt-4o",
+            model="gpt-5.4",
             max_tokens=100,
             temperature=0.5,
         )
-        assert body["model"] == "gpt-4o"
-        # system should be prepended as first message
-        assert body["messages"][0]["role"] == "system"
+        assert body["model"] == "gpt-5.4"
+        assert body["instructions"] == "be helpful"
+        assert body["input"][0]["role"] == "user"
+        assert body["max_output_tokens"] == 100
+        assert body["store"] is False
+        assert "temperature" not in body
+
+    def test_openai_responses_parse(self):
+        parse_fn = PROVIDER_CONFIGS["chatgpt"]["parse_fn"]
+        parsed = parse_fn({
+            "model": "gpt-5.4-2026-03-05",
+            "output": [
+                {"type": "reasoning", "summary": []},
+                {"type": "message", "content": [
+                    {"type": "output_text", "text": "Hello"},
+                    {"type": "output_text", "text": " world"},
+                ]},
+            ],
+            "usage": {"input_tokens": 12, "output_tokens": 7},
+        })
+        assert parsed.text == "Hello world"
+        assert parsed.tokens_in == 12
+        assert parsed.tokens_out == 7
 
     def test_gemini_body_format(self):
         body_fn = PROVIDER_CONFIGS["gemini"]["body_fn"]
@@ -161,6 +184,49 @@ class TestProviderConfigs:
         )
         assert "contents" in body
         assert "systemInstruction" in body
+
+    def test_jev_config_and_parsing(self):
+        cfg = PROVIDER_CONFIGS["jev"]
+        assert cfg["default_model"] == "typesafe/jev"
+        headers = cfg["headers_fn"]("test-key")
+        assert headers["Authorization"] == "Bearer test-key"
+
+        body = cfg["body_fn"](
+            messages=[{"role": "user", "content": "evaluate this code"}],
+            system="judge accuracy",
+            model="typesafe/jev",
+            max_tokens=256,
+            temperature=0.1,
+        )
+        assert body["model"] == "typesafe/jev"
+        assert body["messages"][0]["role"] == "system"
+
+        # parse Jev fast decision response
+        jev_resp = {
+            "choices": [{"message": {"content": "PASSED: All criteria met"}}],
+            "usage": {"prompt_tokens": 50, "completion_tokens": 30},
+        }
+        parsed = cfg["parse_fn"](jev_resp)
+        assert "PASSED" in parsed.text
+        assert parsed.tokens_in == 50
+        assert parsed.tokens_out == 30
+
+    def test_groq_and_mistral_configs(self):
+        groq_cfg = PROVIDER_CONFIGS["groq"]
+        assert "groq.com" in groq_cfg["endpoint"]
+        assert groq_cfg["default_model"] == "llama-3.3-70b-versatile"
+
+        mistral_cfg = PROVIDER_CONFIGS["mistral"]
+        assert "mistral.ai" in mistral_cfg["endpoint"]
+        assert mistral_cfg["default_model"] == "mistral-small-latest"
+
+    def test_openrouter_ollama_together_qwen_configs(self):
+        for prov in ["openrouter", "ollama", "together", "qwen"]:
+            cfg = PROVIDER_CONFIGS[prov]
+            assert "endpoint" in cfg
+            assert cfg["default_model"]
+            headers = cfg["headers_fn"]("my-key")
+            assert isinstance(headers, dict)
 
 
 class TestCredentialStorePermissions:

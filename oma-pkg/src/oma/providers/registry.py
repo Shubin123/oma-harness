@@ -161,20 +161,34 @@ class ProviderRegistry:
 
         reg = ProviderRegistry()
         oma_map = {
-            "claude":   "OMA_CLAUDE_KEY",
-            "gemini":   "OMA_GEMINI_KEY",
-            "chatgpt":  "OMA_OPENAI_KEY",
-            "deepseek": "OMA_DEEPSEEK_KEY",
-            "glm":      "OMA_GLM_KEY",
-            "kimi":     "OMA_KIMI_KEY",
+            "claude":     "OMA_CLAUDE_KEY",
+            "gemini":     "OMA_GEMINI_KEY",
+            "chatgpt":    "OMA_OPENAI_KEY",
+            "deepseek":   "OMA_DEEPSEEK_KEY",
+            "jev":        "OMA_JEV_KEY",
+            "groq":       "OMA_GROQ_KEY",
+            "mistral":    "OMA_MISTRAL_KEY",
+            "openrouter": "OMA_OPENROUTER_KEY",
+            "ollama":     "OMA_OLLAMA_KEY",
+            "together":   "OMA_TOGETHER_KEY",
+            "qwen":       "OMA_QWEN_KEY",
+            "glm":        "OMA_GLM_KEY",
+            "kimi":       "OMA_KIMI_KEY",
         }
         std_map = {
-            "claude":   ["ANTHROPIC_API_KEY", "CLAUDE_API_KEY"],
-            "gemini":   ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
-            "chatgpt":  ["OPENAI_API_KEY"],
-            "deepseek": ["DEEPSEEK_API_KEY"],
-            "glm":      ["GLM_API_KEY", "ZHIPU_API_KEY"],
-            "kimi":     ["KIMI_API_KEY", "MOONSHOT_API_KEY"],
+            "claude":     ["ANTHROPIC_API_KEY", "CLAUDE_API_KEY"],
+            "gemini":     ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+            "chatgpt":    ["OPENAI_API_KEY"],
+            "deepseek":   ["DEEPSEEK_API_KEY"],
+            "jev":        ["JEV_API_KEY", "TYPESAFE_API_KEY"],
+            "groq":       ["GROQ_API_KEY"],
+            "mistral":    ["MISTRAL_API_KEY"],
+            "openrouter": ["OPENROUTER_API_KEY"],
+            "ollama":     ["OLLAMA_API_KEY", "OLLAMA_HOST"],
+            "together":   ["TOGETHER_API_KEY"],
+            "qwen":       ["DASHSCOPE_API_KEY", "QWEN_API_KEY"],
+            "glm":        ["GLM_API_KEY", "ZHIPU_API_KEY"],
+            "kimi":       ["KIMI_API_KEY", "MOONSHOT_API_KEY"],
         }
 
         for name, env_var in oma_map.items():

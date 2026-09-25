@@ -28,7 +28,8 @@ export type RoutingStrategy =
   | 'lkgp'
   | 'auto'
   | 'fusion'
-  | 'pipeline';
+  | 'pipeline'
+  | 'tiered';
 
 export type BreakerState = 'closed' | 'degraded' | 'open' | 'half_open';
 
@@ -38,7 +39,7 @@ export type DegradationLevel = 'full' | 'reduced' | 'minimal' | 'default';
 
 export const ROUTING_STRATEGIES: RoutingStrategy[] = [
   'priority', 'weighted', 'round_robin', 'p2c', 'least_used',
-  'cost_optimized', 'lkgp', 'auto', 'fusion', 'pipeline',
+  'cost_optimized', 'lkgp', 'auto', 'fusion', 'pipeline', 'tiered',
 ];
 
 // ---------------------------------------------------------------------------
@@ -660,7 +661,14 @@ export class Router {
     this.scorer = new AutoScorer(opts?.weights);
     this.degradation = new DegradationManager();
     this.pipeline = new PipelineEngine();
+    this.tiers = {
+      t1: ['gemini', 'claude', 'chatgpt'],
+      t2: ['deepseek', 'mistral', 'groq', 'jev', 'glm', 'kimi'],
+      t3: ['ollama', 'together', 'qwen'],
+    };
   }
+
+  tiers: Record<string, string[]>;
 
   getBreaker(providerId: string): CircuitBreaker {
     let b = this.breakers.get(providerId);
@@ -673,6 +681,45 @@ export class Router {
 
   setWeights(providerId: string, weight: number): void {
     this._providerWeights.set(providerId, Math.max(0, weight));
+  }
+
+  selectTiered(
+    t1: string | string[] = 'gemini',
+    t2: string | string[] = 'deepseek',
+    available?: string[],
+  ): [string, string, boolean] {
+    const t1List = Array.isArray(t1) ? t1 : [t1];
+    const t2List = Array.isArray(t2) ? t2 : [t2];
+    const avail = available ?? Array.from(this.breakers.keys());
+
+    if (!avail.length) return [t1List[0], 't1', false];
+
+    // 1. Try healthy T1 candidates
+    for (const p of t1List) {
+      if (avail.includes(p)) {
+        const cb = this.getBreaker(p);
+        if (cb.allowRequest() && this.quotaMgr.isAvailable(p)) {
+          return [p, 't1', false];
+        }
+      }
+    }
+
+    // 2. T1 unavailable or tripped breaker -> failover to T2
+    for (const p of t2List) {
+      if (avail.includes(p)) {
+        const cb = this.getBreaker(p);
+        if (cb.allowRequest() && this.quotaMgr.isAvailable(p)) {
+          return [p, 't2', true];
+        }
+      }
+    }
+
+    // 3. Fallback
+    for (const p of [...t1List, ...t2List]) {
+      if (avail.includes(p)) return [p, 'fallback', true];
+    }
+
+    return [avail[0], 'fallback', true];
   }
 
   select(
@@ -751,6 +798,15 @@ export class Router {
     if (strat === 'fusion') return candidates;
 
     if (strat === 'pipeline') return candidates[0];
+
+    if (strat === 'tiered') {
+      const [p] = this.selectTiered(
+        this.tiers.t1 ?? ['gemini', 'claude', 'chatgpt'],
+        this.tiers.t2 ?? ['deepseek', 'mistral', 'groq', 'jev'],
+        candidates,
+      );
+      return p;
+    }
 
     return candidates[0];
   }

@@ -269,6 +269,7 @@ export type CriteriaFn = (state: TaskState) => Record<string, unknown>;
 export type ReasonFn = (state: TaskState, strategy: Strategy) => Reasoning;
 export type PlanFn = (state: TaskState, strategy: Strategy, lesson: Lesson) => PlanDecision;
 export type OnPhaseFn = (event: PhaseEvent) => void;
+export type FallbackSolverFn = (state: TaskState) => Promise<[string, number, number]> | [string, number, number];
 
 function sleep(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms));
@@ -285,6 +286,7 @@ function sleep(ms: number): Promise<void> {
  *   - plan_fn(state, strategy, lesson) -> PlanDecision (optional)
  *   - on_phase(event) -> void (optional, for GUI updates)
  *   - criteria_fn(state) -> dict (optional)
+ *   - fallback_solver(state) -> [result, tokens_used, confidence] (optional)
  */
 export class RalphLoop {
   private config: LoopConfig;
@@ -295,6 +297,7 @@ export class RalphLoop {
   private planFn?: PlanFn;
   private onPhase?: OnPhaseFn;
   private criteriaFn?: CriteriaFn;
+  private fallbackSolver?: FallbackSolverFn;
 
   constructor(opts: {
     config: LoopConfig;
@@ -305,6 +308,7 @@ export class RalphLoop {
     plan_fn?: PlanFn;
     on_phase?: OnPhaseFn;
     criteria_fn?: CriteriaFn;
+    fallback_solver?: FallbackSolverFn;
   }) {
     this.config = opts.config;
     this.solve = opts.solve_fn;
@@ -314,6 +318,7 @@ export class RalphLoop {
     this.planFn = opts.plan_fn;
     this.onPhase = opts.on_phase;
     this.criteriaFn = opts.criteria_fn;
+    this.fallbackSolver = opts.fallback_solver;
   }
 
   /** Emit a phase event and update state tracking. */
@@ -512,6 +517,24 @@ export class RalphLoop {
         const msg = e instanceof Error ? e.message : String(e);
         state.progress.push([state.attempts, `[${providerName}] error: ${msg}`, 0]);
         continue;
+      }
+    }
+
+    // if all providers failed (or none available), try self-healing fallback
+    if (this.fallbackSolver) {
+      try {
+        const [result, tokens, confidence] = await this.fallbackSolver(state);
+        if (result) {
+          state.progress.push([
+            state.attempts,
+            '[fallback-solver] self-healing fallback resolved objective',
+            confidence,
+          ]);
+          return [result, tokens, confidence, 'fallback-solver'];
+        }
+      } catch (fe) {
+        const msg = fe instanceof Error ? fe.message : String(fe);
+        state.progress.push([state.attempts, `[fallback-solver] error: ${msg}`, 0]);
       }
     }
 

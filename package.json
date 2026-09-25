@@ -4,7 +4,7 @@
   "description": "OMA - Open Multi Agent Harness",
   "private": true,
   "scripts": {
-    "start": "python3 run.py --serve",
+    "start": "./start.sh",
     "test": "python3 run.py",
     "build": "python3 tools/build.py",
     "demo": "python3 run.py --skip-tests",

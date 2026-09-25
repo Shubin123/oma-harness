@@ -95,6 +95,11 @@ export class ProviderRegistry {
       .map(([name]) => name);
   }
 
+  /** All registered provider names. */
+  providerNames(): string[] {
+    return [...this._providers.keys()];
+  }
+
   /** Pick the provider with best success rate * inverse latency, among available. */
   bestAvailable(): string | null {
     const avail = this.available();
@@ -154,6 +159,13 @@ export class ProviderRegistry {
       gemini: ['OMA_GEMINI_KEY'],
       chatgpt: ['OMA_OPENAI_KEY'],
       deepseek: ['OMA_DEEPSEEK_KEY'],
+      jev: ['OMA_JEV_KEY'],
+      groq: ['OMA_GROQ_KEY'],
+      mistral: ['OMA_MISTRAL_KEY'],
+      openrouter: ['OMA_OPENROUTER_KEY'],
+      ollama: ['OMA_OLLAMA_KEY'],
+      together: ['OMA_TOGETHER_KEY'],
+      qwen: ['OMA_QWEN_KEY'],
       glm: ['OMA_GLM_KEY'],
       kimi: ['OMA_KIMI_KEY'],
     };
@@ -163,6 +175,15 @@ export class ProviderRegistry {
       envMap.chatgpt.push('OPENAI_API_KEY', 'CHATGPT_ACCESS_TOKEN');
       envMap.gemini.push('GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GEMINI_COOKIE');
       envMap.deepseek.push('DEEPSEEK_API_KEY');
+      envMap.jev.push('JEV_API_KEY', 'TYPESAFE_API_KEY');
+      envMap.groq.push('GROQ_API_KEY');
+      envMap.mistral.push('MISTRAL_API_KEY');
+      envMap.openrouter.push('OPENROUTER_API_KEY');
+      envMap.ollama.push('OLLAMA_API_KEY', 'OLLAMA_HOST');
+      envMap.together.push('TOGETHER_API_KEY');
+      envMap.qwen.push('DASHSCOPE_API_KEY', 'QWEN_API_KEY');
+      envMap.glm.push('GLM_API_KEY', 'ZHIPU_API_KEY');
+      envMap.kimi.push('KIMI_API_KEY', 'MOONSHOT_API_KEY');
     }
 
     for (const [name, envVars] of Object.entries(envMap)) {

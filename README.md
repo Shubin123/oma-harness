@@ -115,7 +115,7 @@ Six LLM providers, two connection modes, zero SDK dependencies. All via raw `url
 | Provider | Env var | API style | Subscription mode |
 |----------|---------|-----------|-------------------|
 | Claude | `OMA_CLAUDE_KEY` | Anthropic Messages | claude.ai session cookie |
-| ChatGPT | `OMA_OPENAI_KEY` | OpenAI Chat Completions | chatgpt.com access token |
+| OpenAI | `OMA_OPENAI_KEY` | OpenAI Responses API | chatgpt.com access token |
 | Gemini | `OMA_GEMINI_KEY` | Google GenerativeLanguage | gemini.google.com session |
 | DeepSeek | `OMA_DEEPSEEK_KEY` | OpenAI-compatible | -- |
 | GLM/Zhipu | `OMA_GLM_KEY` | OpenAI-compatible | -- |
