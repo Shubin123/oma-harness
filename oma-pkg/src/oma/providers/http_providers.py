@@ -339,6 +339,14 @@ PROVIDER_CONFIGS: dict[str, ProviderConfig] = {
         "body_fn": _openai_body,
         "parse_fn": _openai_parse,
     },
+    "laya": {
+        # Convai Innovations Laya (System 1 fast local decision & classifier model)
+        "endpoint": "http://127.0.0.1:8385/v1/chat/completions",
+        "default_model": "convaiinnovations/laya",
+        "headers_fn": _optional_bearer_headers,
+        "body_fn": _openai_body,
+        "parse_fn": _openai_parse,
+    },
     "groq": {
         "endpoint": "https://api.groq.com/openai/v1/chat/completions",
         "default_model": "llama-3.3-70b-versatile",

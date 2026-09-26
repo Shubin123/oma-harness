@@ -14,6 +14,7 @@ import {
 import { OmniRouteBridge } from './core/omniroute_bridge.js';
 import { PROVIDER_CONFIGS } from './providers/http-providers.js';
 import { OMA } from './agent.js';
+import { LayaClassifier, TaskEncapsulation } from './core/layaClassifier.js';
 
 test('integration: Router supports all 10 routing strategies', () => {
   const providers = ['claude', 'chatgpt', 'gemini'];
@@ -296,4 +297,46 @@ test('integration: OMA fallback solve delivers high-confidence solution on offli
   assert.ok(result.confidence >= 0.90, `Confidence ${result.confidence} should be >= 0.90`);
   assert.ok(result.tokens_used > 0, 'Tokens should be accounted');
   assert.ok((result.artifacts.final ?? '').includes('def quicksort'), 'Quicksort implementation generated');
+});
+
+test('integration: LayaClassifier encapsulates tasks with agents and sub-agents', () => {
+  const classifier = new LayaClassifier();
+
+  // Test coding task classification and encapsulation
+  const encCoding = classifier.encapsulate('Refactor the database queries in Python and write unit tests');
+  assert.equal(encCoding.category, 'coding');
+  assert.equal(encCoding.assignedAgent, 'coding_agent');
+  assert.ok(['chatgpt', 'claude', 'deepseek'].includes(encCoding.recommendedProvider));
+  assert.ok(encCoding.subAgents.length >= 2, 'Should decompose into subtasks');
+  assert.ok(encCoding.subAgents.some(st => st.role.toLowerCase().includes('developer') || st.role.toLowerCase().includes('qa') || st.role.toLowerCase().includes('architect')));
+
+  // Test research task
+  const encResearch = classifier.encapsulate('Research market competitors and analyze pricing models');
+  assert.equal(encResearch.category, 'research');
+  assert.equal(encResearch.assignedAgent, 'research_agent');
+  assert.ok(['gemini', 'claude'].includes(encResearch.recommendedProvider));
+
+  // Test math logic task
+  const encMath = classifier.encapsulate('Calculate Bayesian posterior probability under beta prior');
+  assert.equal(encMath.category, 'math_logic');
+
+  // Test quality gate evaluation
+  const gatePass = classifier.evaluateQuality('All 15 tests passed with 100% branch coverage', { tests: 'passed' });
+  assert.equal(gatePass.passed, true);
+  assert.ok(gatePass.score >= 0.7);
+
+  const gateFail = classifier.evaluateQuality('error: failed to bind address');
+  assert.equal(gateFail.passed, false);
+
+  // Invariant 1: State always serializable
+  const serialized = encCoding.toDict();
+  assert.equal(typeof serialized, 'object');
+  const restored = TaskEncapsulation.fromDict(serialized);
+  assert.deepEqual(restored.toDict(), serialized);
+
+  // OMA integration check
+  const oma = OMA.fromEnv();
+  const classified = oma.classifyTask('Implement a binary search tree in TypeScript');
+  assert.equal(classified.category, 'coding');
+  assert.ok(classified.subAgents.length > 0);
 });

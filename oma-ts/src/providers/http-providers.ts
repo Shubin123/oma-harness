@@ -294,6 +294,13 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     body_fn: openaiBody,
     parse_fn: openaiParse,
   },
+  laya: {
+    endpoint: 'http://127.0.0.1:8385/v1/chat/completions',
+    default_model: 'convaiinnovations/laya',
+    headers_fn: optionalBearerHeaders,
+    body_fn: openaiBody,
+    parse_fn: openaiParse,
+  },
   groq: {
     endpoint: 'https://api.groq.com/openai/v1/chat/completions',
     default_model: 'llama-3.3-70b-versatile',

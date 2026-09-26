@@ -21,6 +21,7 @@ from core.loop import CoreLoop, LoopConfig, TaskState
 from core.criteria import CriteriaSet, Criterion, CriterionType
 from core.sanitize import Sanitizer
 from core.edge import HandoffNote, near_outage_handler, outage_recovery_prompt
+from core.laya_classifier import LayaClassifier, TaskEncapsulation
 from providers.registry import ProviderRegistry
 from automation.memory import WorkingMemory, PersistentMemory, ContextOptimizer
 
@@ -45,6 +46,16 @@ class OMA:
         self.working = WorkingMemory()
         self.persistent = PersistentMemory(base_dir=memory_dir)
         self.optimizer = ContextOptimizer(token_budget=self.config.token_budget)
+        self.classifier = LayaClassifier()
+
+    def classify_task(
+        self,
+        objective: str,
+        context: str = "",
+        criteria: dict = None,
+    ) -> TaskEncapsulation:
+        """Classify and encapsulate a task using local Laya System 1 decision engine."""
+        return self.classifier.encapsulate(objective=objective, context=context, criteria=criteria)
 
     @classmethod
     def from_env(cls, **kwargs) -> "OMA":

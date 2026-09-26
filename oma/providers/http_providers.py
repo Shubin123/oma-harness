@@ -277,4 +277,11 @@ PROVIDER_CONFIGS = {
         "body_fn": _openai_body,
         "parse_fn": _openai_parse,
     },
+    "laya": {
+        "endpoint": "http://127.0.0.1:8385/v1/chat/completions",
+        "default_model": "convaiinnovations/laya",
+        "headers_fn": _openai_headers,
+        "body_fn": _openai_body,
+        "parse_fn": _openai_parse,
+    },
 }

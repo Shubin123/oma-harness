@@ -383,6 +383,72 @@ def test_post_workflows_tiered_routing_run(test_server, mock_agent):
         assert results["n6"]["status"] == "pass-through"
 
 
+def test_post_workflow_run_laya_classifier_multi_agent(test_server):
+    """Test executing a DAG workflow featuring Laya task encapsulation, agents, and sub-agents."""
+    mock_agent = DashboardHandler.agent
+    mock_agent.run.return_value = MagicMock(
+        status=MagicMock(value="done"),
+        confidence=0.95,
+        artifacts={"final": "Subtask successfully completed with verified outputs."},
+    )
+
+    nodes = [
+        {"id": "n1", "type": "start", "name": "Task Input"},
+        {"id": "n2", "type": "classifier", "name": "Laya Task Classifier", "provider": "laya"},
+        {"id": "n3", "type": "agent", "name": "Primary Coordinator"},
+        {"id": "n4", "type": "sub_agent", "name": "Specialist Sub-Agent"},
+        {"id": "n5", "type": "merge", "name": "Merge Deliverables"},
+        {"id": "n6", "type": "judge", "name": "Laya Quality Gate", "provider": "laya"},
+        {"id": "n7", "type": "end", "name": "Final Solution"},
+    ]
+    edges = [
+        {"from": "n1", "to": "n2"},
+        {"from": "n2", "to": "n3"},
+        {"from": "n2", "to": "n4"},
+        {"from": "n3", "to": "n5"},
+        {"from": "n4", "to": "n5"},
+        {"from": "n5", "to": "n6"},
+        {"from": "n6", "to": "n7"},
+    ]
+
+    payload = json.dumps({
+        "nodes": nodes,
+        "edges": edges,
+        "input": "Build a Python asynchronous rate-limiter with token bucket algorithm and unit tests",
+    }).encode()
+    req = Request(f"{test_server}/api/workflows/run", data=payload, headers={"Content-Type": "application/json"})
+    with urlopen(req) as resp:
+        assert resp.status == 200
+        res = json.loads(resp.read().decode("utf-8"))
+        assert res["status"] == "done"
+        assert "node_results" in res
+        results = res["node_results"]
+
+        # n2 is Laya Classifier
+        assert results["n2"]["status"] == "done"
+        assert results["n2"]["classifier"] == "laya (Convai System 1)"
+        assert results["n2"]["category"] == "coding"
+        assert "task_encapsulation" in results["n2"]
+        assert len(results["n2"]["sub_agents"]) > 0
+
+        # n3 is primary agent
+        assert results["n3"]["status"] == "done"
+
+        # n4 is sub-agent (delegated subtask)
+        assert results["n4"]["status"] == "done"
+
+        # n5 is merge
+        assert results["n5"]["status"] == "pass-through"
+
+        # n6 is Laya judge
+        assert results["n6"]["status"] == "done"
+        assert results["n6"]["evaluator"] == "laya (Convai System 1)"
+        assert results["n6"]["decision"] == "PASSED"
+
+        # n7 is end
+        assert results["n7"]["status"] == "pass-through"
+
+
 def test_verify_token_direct():
     handler = DashboardHandler.__new__(DashboardHandler)
 
@@ -390,6 +456,11 @@ def test_verify_token_direct():
     ok, err = handler._verify_token("claude", "")
     assert ok is False
     assert "Empty token" in err
+
+    # Laya local classifier verify
+    ok, detail = handler._verify_token("laya", "laya-local-key")
+    assert ok is True
+    assert "Laya local System 1 classifier active" in detail
 
     # Claude verify mock
     with patch("urllib.request.urlopen") as mock_urlopen:

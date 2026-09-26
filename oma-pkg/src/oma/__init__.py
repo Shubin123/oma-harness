@@ -7,6 +7,15 @@ from oma.automation.memory import ContextOptimizer, PersistentMemory, WorkingMem
 from oma.core.criteria import CriteriaSet, Criterion, CriterionType
 from oma.core.edge import HandoffNote, near_outage_handler, outage_recovery_prompt
 from oma.core.loop import CoreLoop, LoopConfig, Status, TaskState
+from oma.core.laya_classifier import (
+    GateResult,
+    LayaClassifier,
+    RoutingDecision,
+    SubTaskSpec,
+    TaskCategory,
+    TaskComplexity,
+    TaskEncapsulation,
+)
 from oma.core.omniroute_bridge import OmniRouteBridge
 from oma.core.router import Router
 from oma.core.sanitize import Sanitizer, sanitize
@@ -21,6 +30,7 @@ __all__ = [
     "HandoffNote", "near_outage_handler", "outage_recovery_prompt",
     "Router",
     "OmniRouteBridge",
+    "LayaClassifier", "TaskEncapsulation", "TaskCategory", "TaskComplexity", "SubTaskSpec", "GateResult", "RoutingDecision",
     "ProviderRegistry",
     "AuthManager", "CredentialStore",
     "WorkingMemory", "PersistentMemory", "ContextOptimizer",

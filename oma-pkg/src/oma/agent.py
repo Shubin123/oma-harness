@@ -29,6 +29,7 @@ from typing import Any
 from oma.automation.memory import ContextOptimizer, PersistentMemory, WorkingMemory
 from oma.core.criteria import ensure_criteria
 from oma.core.edge import near_outage_handler
+from oma.core.laya_classifier import LayaClassifier, TaskEncapsulation
 from oma.core.loop import (
     Lesson,
     LoopConfig,
@@ -110,6 +111,18 @@ class OMA:
         # ralph phase tracking for GUI
         self._current_phase = "idle"
         self._phase_events: list[dict] = []
+
+        # local Laya System 1 task classifier
+        self.classifier = LayaClassifier()
+
+    def classify_task(
+        self,
+        objective: str,
+        context: str = "",
+        criteria: dict | None = None,
+    ) -> TaskEncapsulation:
+        """Classify and encapsulate a task using local Laya System 1 decision engine."""
+        return self.classifier.encapsulate(objective=objective, context=context, criteria=criteria)
 
     @classmethod
     def from_env(

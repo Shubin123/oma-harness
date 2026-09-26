@@ -13,6 +13,14 @@ export { Sanitizer, sanitize } from './core/sanitize.js';
 export { HandoffNote, nearOutageHandler, outageRecoveryPrompt } from './core/edge.js';
 export { Router } from './core/router.js';
 export { OmniRouteBridge } from './core/omniroute_bridge.js';
+export {
+  LayaClassifier,
+  TaskEncapsulation,
+  TaskCategory,
+  TaskComplexity,
+  RoutingDecision,
+} from './core/layaClassifier.js';
+export type { SubTaskSpec, TaskEncapsulationData, GateResult } from './core/layaClassifier.js';
 export { ProviderRegistry, ProviderHealth } from './providers/registry.js';
 export { AuthManager, CredentialStore, AuthStatus, PROVIDER_AUTH } from './providers/auth.js';
 export type { Credential } from './providers/auth.js';

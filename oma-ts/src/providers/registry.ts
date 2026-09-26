@@ -160,6 +160,7 @@ export class ProviderRegistry {
       chatgpt: ['OMA_OPENAI_KEY'],
       deepseek: ['OMA_DEEPSEEK_KEY'],
       jev: ['OMA_JEV_KEY'],
+      laya: ['OMA_LAYA_KEY'],
       groq: ['OMA_GROQ_KEY'],
       mistral: ['OMA_MISTRAL_KEY'],
       openrouter: ['OMA_OPENROUTER_KEY'],
@@ -176,6 +177,7 @@ export class ProviderRegistry {
       envMap.gemini.push('GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GEMINI_COOKIE');
       envMap.deepseek.push('DEEPSEEK_API_KEY');
       envMap.jev.push('JEV_API_KEY', 'TYPESAFE_API_KEY');
+      envMap.laya.push('LAYA_API_KEY', 'LAYA_MODEL');
       envMap.groq.push('GROQ_API_KEY');
       envMap.mistral.push('MISTRAL_API_KEY');
       envMap.openrouter.push('OPENROUTER_API_KEY');

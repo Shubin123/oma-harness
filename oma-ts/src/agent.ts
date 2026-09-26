@@ -49,6 +49,7 @@ import {
   OmniRouteBridge,
   type OmniRouteConfig,
 } from './core/omniroute_bridge.js';
+import { LayaClassifier, type TaskEncapsulation } from './core/layaClassifier.js';
 import { ProviderRegistry } from './providers/registry.js';
 import { providerResponseOk, providerResponseTokensTotal } from './providers/base.js';
 import { AuthManager } from './providers/auth.js';
@@ -61,6 +62,7 @@ export class OMA {
   persistent: PersistentMemory;
   optimizer: ContextOptimizer;
   router: Router;
+  classifier: LayaClassifier;
   omniRouteBridge: OmniRouteBridge | null = null;
 
   private _omniRouteEnabled = false;
@@ -104,6 +106,17 @@ export class OMA {
     if (this._omniRouteEnabled) {
       this.omniRouteBridge = new OmniRouteBridge(opts.omniRouteConfig);
     }
+
+    this.classifier = new LayaClassifier();
+  }
+
+  /** Classify and encapsulate a task into structured metadata with agents and sub-agents. */
+  classifyTask(
+    objective: string,
+    context: string = '',
+    criteria: Record<string, unknown> = {},
+  ): TaskEncapsulation {
+    return this.classifier.encapsulate(objective, context, criteria);
   }
 
   /** Create OMA from environment variables. */

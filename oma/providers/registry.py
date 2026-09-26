@@ -158,6 +158,7 @@ class ProviderRegistry:
             "gemini":   "OMA_GEMINI_KEY",
             "chatgpt":  "OMA_OPENAI_KEY",
             "deepseek": "OMA_DEEPSEEK_KEY",
+            "laya":     "OMA_LAYA_KEY",
             "glm":      "OMA_GLM_KEY",
             "kimi":     "OMA_KIMI_KEY",
         }
