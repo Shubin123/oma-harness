@@ -1,0 +1,12 @@
+{
+  "name": "@oma/cli",
+  "version": "0.2.1",
+  "type": "module",
+  "bin": {
+    "oma": "./src/index.ts"
+  },
+  "dependencies": {
+    "@oma/core": "workspace:*",
+    "@oma/dashboard": "workspace:*"
+  }
+}

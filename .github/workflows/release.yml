@@ -1,65 +1,39 @@
 name: Release
-
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag to build and publish (e.g. v0.2.0)"
-        required: true
-
 permissions:
   contents: write
-
 jobs:
   build:
-    name: ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-14, label: macOS arm64 }
-          # macos-13 was retired: jobs targeting it queue forever without
-          # ever being assigned a runner. macos-15-intel is its replacement.
-          - { os: macos-15-intel, label: macOS x64 }
-          - { os: ubuntu-latest, label: Linux x64 }
-          - { os: windows-latest, label: Windows x64 }
+          - { os: ubuntu-latest, artifact: oma-linux-x64 }
+          - { os: macos-latest, artifact: oma-macos-arm64 }
+          - { os: windows-latest, artifact: oma-windows-x64.exe }
     steps:
       - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Install package
-        working-directory: oma-pkg
-        run: pip install -e ".[dev]"
-
-      # One build driver for every platform: the same script contributors run
-      # locally, so a release cannot diverge from a local build.
-      - name: Build binaries
-        run: python tools/build.py --wheel
-
-      - name: List artifacts
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run check
+      - run: bun run build:binary
+      - name: Name executable
         shell: bash
-        run: ls -lh dist/
-
+        run: |
+          if [ -f dist/oma.exe ]; then mv dist/oma.exe 'dist/${{ matrix.artifact }}'; else mv dist/oma 'dist/${{ matrix.artifact }}'; fi
       - uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ matrix.os }}
-          path: |
-            dist/*.tar.gz
-            dist/*.zip
-            dist/*.whl
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
           if-no-files-found: error
-
   release:
-    name: Publish release
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -67,25 +41,11 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
-
-      # Each runner wrote checksums for its own artifacts; the release needs
-      # one file covering all of them.
-      - name: Generate combined checksums
+      - name: Checksums
         run: |
           cd artifacts
-          find . -type f ! -name SHA256SUMS -printf '%P\n' | sort | \
-            xargs sha256sum > SHA256SUMS
-          cat SHA256SUMS
-
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+          sha256sum oma-* > SHA256SUMS
+      - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           generate_release_notes: true
-          files: |
-            artifacts/*.tar.gz
-            artifacts/*.zip
-            artifacts/*.whl
-            artifacts/SHA256SUMS
-          draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          files: artifacts/*

@@ -1,0 +1,15 @@
+{
+  "name": "@oma/core",
+  "version": "0.2.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@oma/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@oma/dashboard": "workspace:*"
+  }
+}

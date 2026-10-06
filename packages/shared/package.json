@@ -1,0 +1,9 @@
+{
+  "name": "@oma/shared",
+  "version": "0.2.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  }
+}

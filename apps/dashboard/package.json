@@ -1,0 +1,12 @@
+{
+  "name": "@oma/dashboard",
+  "version": "0.2.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/web.ts"
+  },
+  "dependencies": {
+    "@oma/core": "workspace:*",
+    "@oma/shared": "workspace:*"
+  }
+}

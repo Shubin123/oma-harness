@@ -70,3 +70,8 @@ sea-config.json
 *.swp
 *.swo
 *~
+
+# Bun browser bundle and browser test artifacts
+apps/dashboard/src/generated/
+playwright-report/
+test-results/

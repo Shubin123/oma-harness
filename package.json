@@ -1,13 +1,34 @@
 {
   "name": "oma-workspace",
   "version": "0.2.1",
-  "description": "OMA - Open Multi Agent Harness",
   "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "start": "./start.sh",
-    "test": "python3 run.py",
-    "build": "python3 tools/build.py",
-    "demo": "python3 run.py --skip-tests",
-    "all": "./run.sh"
+    "start": "bun tools/build.ts --browser && bun apps/cli/src/index.ts start",
+    "dev": "bun tools/build.ts --browser && bun --watch apps/cli/src/index.ts start --no-browser",
+    "build": "bun tools/build.ts",
+    "build:binary": "bun tools/build.ts --compile",
+    "typecheck": "bun tools/build.ts --browser && tsc --noEmit",
+    "test": "bun tools/build.ts --browser && bun test packages apps",
+    "test:browser": "bun tools/build.ts --browser && bun test tests/browser.test.ts",
+    "test:live": "bun tools/build.ts --browser && OMA_LIVE_TESTS=1 bun test tests/live.test.ts",
+    "test:watch": "bun tools/test-watch.ts",
+    "check": "bun run typecheck && bun run build && bun run test && bun run test:browser",
+    "demo": "bun apps/cli/src/index.ts demo"
+  },
+  "devDependencies": {
+    "@oma/core": "workspace:*",
+    "@oma/dashboard": "workspace:*",
+    "@oma/shared": "workspace:*",
+    "@types/bun": "^1.3.0",
+    "@types/node": "^22.0.0",
+    "playwright": "^1.58.0",
+    "prettier": "3.6.2",
+    "typescript": "^5.9.0"
   }
 }
